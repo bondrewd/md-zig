@@ -1,0 +1,8 @@
+dt           0.005
+density      0.8
+cell         20.0 20.0 20.0
+temperature  1.0
+step_avg     100
+step_eq      0
+step_total   10000
+
