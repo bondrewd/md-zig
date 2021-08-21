@@ -1,4 +1,9 @@
 const std = @import("std");
+const argparse = @import("argparse-zig/src/argparse.zig");
+
+const ArgumentParser = argparse.ArgumentParser;
+const ArgumentParserOption = argparse.ArgumentParserOption;
+
 const Vec = @import("vec.zig").Vec;
 const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
@@ -11,8 +16,11 @@ pub fn main() anyerror!void {
     var system = System.init(allocator);
     defer system.deinit();
 
-    var args = std.os.argv;
-    if (args.len != 2) try printUsage();
+    const args = try ArgParser.parse(allocator);
+    defer ArgParser.deinitArgs(args);
+
+    std.log.info("Input file:  {s}", .{args.input});
+    std.log.info("Output file: {s}", .{args.output});
 
     //getNameList(argc, argv);
     //printNameList(stdout);
@@ -52,34 +60,31 @@ fn setupJob() void {
     //accumProps(0);
 }
 
-fn printUsage() !void {
-    var stdout = std.io.getStdOut().writer();
-
-    try stdout.print("md 1.0.0\n", .{});
-    try stdout.print("\n", .{});
-    try stdout.print("Molecular dynamics software.\n", .{});
-    try stdout.print("\n", .{});
-    try stdout.print("Usage:\n", .{});
-    try stdout.print("  ./md INPUT\n", .{});
-    try stdout.print("\n", .{});
-}
-
-const Input = struct {
-    dt: Real = 0,
-    density: Real = 0,
-    cell: Vec = .{},
-    temperature: Real = 0,
-    step_avg: u32 = 0,
-    step_eq: u32 = 0,
-    step_total: u32 = 0,
-};
-
-fn parseInput(file_name: []const u8) Input {
-    var input = Input{};
-
-    var f = try std.fs.cwd().openFile(file_name, .{ .write = false });
-    var r = f.reader();
-
-    while (try r.readUntilDelimiterOrEofAlloc) {}
-    return input;
-}
+const ArgParser = ArgumentParser(.{
+    .bin_name = "md",
+    .bin_info = "Molecular Dynamics software.",
+    .bin_usage = "./md OPTION [OPTION...]",
+    .bin_version = .{ .major = 0, .minor = 1, .patch = 0 },
+    .display_error = true,
+}, [_]ArgumentParserOption{
+    .{
+        .name = "input",
+        .long = "--input",
+        .short = "-i",
+        .description = "Input file name (Required)",
+        .metavar = "<FILE> [FILE...]",
+        .argument_type = []const u8,
+        .takes = .One,
+        .required = true,
+    },
+    .{
+        .name = "output",
+        .long = "--output",
+        .short = "-o",
+        .description = "Output file name (Defult: out.md)",
+        .metavar = "<FILE> [FILE...]",
+        .argument_type = []const u8,
+        .takes = .One,
+        .default_value = .{ .string = "out.md" },
+    },
+});
