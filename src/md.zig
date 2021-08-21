@@ -18,8 +18,13 @@ pub fn main() anyerror!void {
     const input = try Input.init(args.input);
     try input.displayValues();
 
-    var system = System.init(allocator, .{ .cell = input.cell, .temperature = input.temperature });
+    var system = try System.init(allocator, .{
+        .cell = input.cell,
+        .n_atoms = input.n_atoms,
+        .temperature = input.temperature,
+    });
     defer system.deinit();
+    try system.displayInfo();
 
     //setParams();
     //setupJob();

@@ -1,3 +1,4 @@
+const std = @import("std");
 const Real = @import("config.zig").Real;
 
 pub const Vec = struct {
@@ -32,6 +33,14 @@ pub fn mul(v1: Vec, v2: Vec) Vec {
 
 pub fn dot(v1: Vec, v2: Vec) Real {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+
+pub fn norm(v: Vec) Real {
+    return std.math.sqrt(dot(v, v));
+}
+
+pub fn normalize(v: Vec) Vec {
+    return scale(v, norm(v));
 }
 
 pub fn scale(v: Vec, s: Real) Vec {

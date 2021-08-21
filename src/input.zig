@@ -8,16 +8,15 @@ const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 // Ansi format
 const reset = ansi.reset;
 const bold = ansi.bold_on;
-const red = ansi.fg_light_red;
 const blue = ansi.fg_light_blue;
-const green = ansi.fg_light_green;
 const yellow = ansi.fg_light_yellow;
 
 pub const Input = struct {
     dt: Real,
     density: Real,
-    cell: [3]Real,
     temperature: Real,
+    n_atoms: u64,
+    cell: [3]Real,
     step_avg: u64,
     step_eq: u64,
     step_total: u64,
@@ -51,6 +50,15 @@ pub const Input = struct {
                         };
                     } else {
                         try stopWithErrorMsg("density value is absent!");
+                    }
+                } else if (mem.eql(u8, token, "n_atoms")) {
+                    if (tokens.next()) |n_atoms| {
+                        input.n_atoms = fmt.parseInt(u64, n_atoms, 10) catch blk: {
+                            try stopWithErrorMsg("Invalid n_atoms value!");
+                            break :blk 0;
+                        };
+                    } else {
+                        try stopWithErrorMsg("n_atoms value is absent!");
                     }
                 } else if (mem.eql(u8, token, "cell")) {
                     if (tokens.next()) |cell_x| {
@@ -126,6 +134,8 @@ pub const Input = struct {
 
         // Print header
         try stdout.writeAll(bold ++ yellow ++ "> INPUT:\n" ++ reset);
+        try stdout.print(bold ++ blue ++ "    n_atoms:     " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.n_atoms});
+        try stdout.writeAll("\n");
         try stdout.print(bold ++ blue ++ "    dt:          " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.dt});
         try stdout.print(bold ++ blue ++ "    density:     " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.density});
         try stdout.print(bold ++ blue ++ "    temperature: " ++ reset ++ bold ++ "{d:<6.2}" ++ reset ++ "\n", .{self.temperature});
