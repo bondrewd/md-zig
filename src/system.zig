@@ -10,29 +10,29 @@ pub const Atom = struct {
 };
 
 pub const System = struct {
-    const Properties = struct {
-        const Energy = struct { potential: Real = 0, kinetic: Real = 0, total: Real = 0 };
-        const Self = @This();
-
-        energy: Energy = .{},
-        velocity: Vec = .{},
-        pressure: Vec = .{},
-        virial: Vec = .{},
-    };
     const Self = @This();
 
-    box: Vec,
+    cell: Vec,
     atoms: std.ArrayList(Atom),
-    cutoff: Real,
-    props: Properties,
 
-    pub fn init(allocator: *std.mem.Allocator) Self {
-        return .{
-            .box = .{},
+    const Configuration = struct {
+        cell: [3]Real,
+        temperature: Real,
+    };
+
+    pub fn init(allocator: *std.mem.Allocator, config: Configuration) Self {
+        var system: System = .{
+            .cell = .{},
             .atoms = std.ArrayList(Atom).init(allocator),
-            .cutoff = std.math.pow(Real, 2, 1 / 6),
-            .props = .{},
         };
+
+        system.cell.x = config.cell[0];
+        system.cell.y = config.cell[1];
+        system.cell.z = config.cell[2];
+
+        system.initAtoms(config.temperature);
+
+        return system;
     }
 
     pub fn deinit(self: Self) void {
@@ -47,23 +47,26 @@ pub const System = struct {
     }
 
     pub fn initPositions(self: Self) void {
-        const box = self.box;
-        const delta = vec.scale(self.box, 1 / self.atoms.len);
+        const cell = self.cell;
+        const n_atoms = @intToFloat(Real, self.atoms.items.len);
+        const delta = vec.scale(self.cell, 1.0 / n_atoms);
+
         for (self.atoms.items) |*atom, i| {
-            atom.r.x = -0.5 * box.x + @intToFloat(Real, i) * delta * box.x;
-            atom.r.y = -0.5 * box.y + @intToFloat(Real, i) * delta * box.y;
-            atom.r.z = -0.5 * box.z + @intToFloat(Real, i) * delta * box.z;
+            atom.r.x = -0.5 * cell.x + @intToFloat(Real, i) * delta.x * cell.x;
+            atom.r.y = -0.5 * cell.y + @intToFloat(Real, i) * delta.y * cell.y;
+            atom.r.z = -0.5 * cell.z + @intToFloat(Real, i) * delta.z * cell.z;
         }
     }
 
     pub fn initVelocities(self: Self, temp: Real) void {
         var v_sum = Vec{};
-        const velocity = std.math.sqrt(3 * (1 - 1 / self.atoms.items.len) * temp);
+        const n_atoms = @intToFloat(Real, self.atoms.items.len);
+        const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * temp);
         for (self.atoms.items) |*atom| {
             atom.v = vec.scale(Vec{}, velocity);
             v_sum = vec.add(v_sum, atom.v);
         }
-        const v_avg = vec.scale(v_sum, 1 / self.atoms.items.len);
+        const v_avg = vec.scale(v_sum, 1.0 / n_atoms);
 
         for (self.atoms.items) |*atom| {
             atom.v = vec.sub(atom.v, v_avg);
@@ -80,24 +83,5 @@ pub const System = struct {
         self.initPositions();
         self.initVelocities(temp);
         self.initAccelerations();
-    }
-
-    pub fn measure(self: Self) void {
-        var v_sum: Vec = .{};
-        var vdot_sum: Real = 0;
-        var vmul_sum: Vec = .{};
-        for (self.atoms.items) |*atom| {
-            v_sum += vec.add(v_sum, atom.v);
-            vdot_sum += vec.dot(atom.v, atom.v);
-            vmul_sum = vec.add(vmul_sum, vec.mul(atom.v, atom.v));
-        }
-        self.props.velocity = v_sum;
-        self.props.energy.kinetic = 0.5 * vdot_sum / self.atoms.items.len;
-        self.props.energy.total = self.props.energy.kinetic + self.props.energy.potential;
-        const volume = self.box.x * self.box.y * self.box.z;
-        const density = self.atoms.items.len / volume;
-        const temp = vec.sum(vmul_sum, self.props.virial);
-        const pressure = vec.scale(temp, density / (3 * self.atoms.items.len));
-        self.props.pressure = pressure;
     }
 };

@@ -1,27 +1,25 @@
 const std = @import("std");
-const argparse = @import("argparse-zig/src/argparse.zig");
 
 const Input = @import("input.zig").Input;
+const System = @import("system.zig").System;
+
+const argparse = @import("argparse-zig/src/argparse.zig");
 const ArgumentParser = argparse.ArgumentParser;
 const ArgumentParserOption = argparse.ArgumentParserOption;
-
-const Vec = @import("vec.zig").Vec;
-const Real = @import("config.zig").Real;
-const System = @import("system.zig").System;
 
 pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     var allocator = &arena.allocator;
 
-    var system = System.init(allocator);
-    defer system.deinit();
-
     const args = try ArgParser.parse(allocator);
     defer ArgParser.deinitArgs(args);
 
     const input = try Input.init(args.input);
     try input.displayValues();
+
+    var system = System.init(allocator, .{ .cell = input.cell, .temperature = input.temperature });
+    defer system.deinit();
 
     //setParams();
     //setupJob();

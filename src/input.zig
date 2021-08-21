@@ -32,7 +32,7 @@ pub const Input = struct {
 
         var buffer: [1024]u8 = undefined;
         while (try r.readUntilDelimiterOrEof(&buffer, '\n')) |line| {
-            var tokens = mem.tokenize(line, " ");
+            var tokens = mem.tokenize(u8, line, " ");
             while (tokens.next()) |token| {
                 if (mem.eql(u8, token, "dt")) {
                     if (tokens.next()) |dt| {
