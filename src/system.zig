@@ -17,6 +17,7 @@ pub const Atom = struct {
 };
 
 pub const System = struct {
+    dt: Real,
     cell: Vec,
     atoms: std.ArrayList(Atom),
     energy: Energy,
@@ -30,6 +31,7 @@ pub const System = struct {
     const Self = @This();
 
     const Configuration = struct {
+        dt: Real,
         cell: [3]Real,
         n_atoms: usize,
         temperature: Real,
@@ -37,10 +39,13 @@ pub const System = struct {
 
     pub fn init(allocator: *std.mem.Allocator, config: Configuration) !Self {
         var system: System = .{
+            .dt = 0,
             .cell = .{},
             .atoms = std.ArrayList(Atom).init(allocator),
             .energy = .{},
         };
+
+        system.dt = config.dt;
 
         system.cell.x = config.cell[0];
         system.cell.y = config.cell[1];
@@ -164,6 +169,50 @@ pub const System = struct {
         self.updateKineticEnergy();
         self.updatePotentialEnergy();
         self.energy.total = self.energy.kinetic + self.energy.potential;
+    }
+
+    pub fn calculateForces(self: *Self) void {
+        const rr_cut = std.math.pow(Real, 2.0, 1.0 / 3.0);
+
+        for (self.atoms.items) |*atom| {
+            atom.a.x = 0.0;
+            atom.a.y = 0.0;
+            atom.a.z = 0.0;
+        }
+
+        var i: usize = 0;
+        while (i < self.atoms.items.len) : (i += 1) {
+            const iatom = self.atoms.items[i];
+
+            var j: usize = i + 1;
+            while (j < self.atoms.items.len) : (j += 1) {
+                const jatom = self.atoms.items[j];
+
+                var rij: Vec = undefined;
+                rij = vec.sub(iatom.r, jatom.r);
+                rij = vec.wrap(rij, self.cell);
+
+                const rr = vec.dot(rij, rij);
+                if (rr < rr_cut) {
+                    const rri = 1.0 / rr;
+                    const rri3 = rri * rri * rri;
+                    const f = 48.0 * rri3 * (rri3 - 0.5) * rri;
+                    const force = vec.scale(rij, f);
+
+                    self.atoms.items[i].a = vec.add(self.atoms.items[i].a, force);
+                    self.atoms.items[j].a = vec.sub(self.atoms.items[j].a, force);
+                }
+            }
+        }
+    }
+
+    pub fn step(self: *Self) void {
+        for (self.atoms.items) |*atom| {
+            atom.v = vec.add(atom.v, vec.scale(atom.a, self.dt / 2.0));
+            atom.r = vec.add(atom.r, vec.scale(atom.v, self.dt));
+            self.calculateForces();
+            atom.v = vec.add(atom.v, vec.scale(atom.a, self.dt / 2.0));
+        }
     }
 
     pub fn displayInfo(self: Self) !void {

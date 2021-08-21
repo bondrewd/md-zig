@@ -19,6 +19,7 @@ pub fn main() anyerror!void {
     try input.displayValues();
 
     var system = try System.init(allocator, .{
+        .dt = input.dt,
         .cell = input.cell,
         .n_atoms = input.n_atoms,
         .temperature = input.temperature,
@@ -26,40 +27,10 @@ pub fn main() anyerror!void {
     defer system.deinit();
     try system.displayInfo();
 
-    //setParams();
-    //setupJob();
-    //more_cycles = 1;
-    //while (more_cycles) {
-    //singleStep();
-    //if (step_count >= step_limit) {
-    //more_cycles = 0;
-    //}
-    //}
-}
-
-fn singleStep() void {
-    //step_count += 1;
-    //time_now = step_count * dt;
-    //leapFrogStep(1);
-    //applyBoundaryCond();
-    //computeForces();
-    //leapFrogStep(2);
-    //evalProps();
-    //accumProps(1);
-    //if (step_count % ste_avg == 0) {
-    //accumProps(2);
-    //printSummary(stdout);
-    //accumProps(0);
-    //}
-}
-
-fn setupJob() void {
-    //allocArrays();
-    //step_count = 0;
-    //initCoords();
-    //initVels();
-    //initAccels();
-    //accumProps(0);
+    var i: usize = 0;
+    while (i < input.step_total) : (i += 1) {
+        std.debug.print("i: {d}\n", .{i});
+    }
 }
 
 const ArgParser = ArgumentParser(.{
