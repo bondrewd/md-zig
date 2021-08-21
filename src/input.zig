@@ -2,7 +2,16 @@ const std = @import("std");
 const fmt = std.fmt;
 const mem = std.mem;
 const Real = @import("config.zig").Real;
+const ansi = @import("ansi-zig/src/ansi.zig");
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
+
+// Ansi format
+const reset = ansi.reset;
+const bold = ansi.bold_on;
+const red = ansi.fg_light_red;
+const blue = ansi.fg_light_blue;
+const green = ansi.fg_light_green;
+const yellow = ansi.fg_light_yellow;
 
 pub const Input = struct {
     dt: Real,
@@ -109,5 +118,22 @@ pub const Input = struct {
         }
 
         return input;
+    }
+
+    pub fn displayValues(self: Self) !void {
+        // Get stdout
+        const stdout = std.io.getStdOut().writer();
+
+        // Print header
+        try stdout.writeAll(bold ++ yellow ++ "> INPUT:\n" ++ reset);
+        try stdout.print(bold ++ blue ++ "    dt:          " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.dt});
+        try stdout.print(bold ++ blue ++ "    density:     " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.density});
+        try stdout.print(bold ++ blue ++ "    temperature: " ++ reset ++ bold ++ "{d:<6.2}" ++ reset ++ "\n", .{self.temperature});
+        try stdout.writeAll("\n");
+        try stdout.print(bold ++ blue ++ "    cell:        " ++ reset ++ bold ++ "{d:<7.2} {d:<7.2} {d:<7.2}" ++ reset ++ "\n", .{ self.cell[0], self.cell[1], self.cell[2] });
+        try stdout.writeAll("\n");
+        try stdout.print(bold ++ blue ++ "    step_avg:    " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_avg});
+        try stdout.print(bold ++ blue ++ "    step_eq:     " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_eq});
+        try stdout.print(bold ++ blue ++ "    step_total:  " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_total});
     }
 };

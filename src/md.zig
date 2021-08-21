@@ -21,17 +21,8 @@ pub fn main() anyerror!void {
     defer ArgParser.deinitArgs(args);
 
     const input = try Input.init(args.input);
+    try input.displayValues();
 
-    std.log.info("dt:          {d}", .{input.dt});
-    std.log.info("density:     {d}", .{input.density});
-    std.log.info("cell:        {d} {d} {d}", .{ input.cell[0], input.cell[1], input.cell[2] });
-    std.log.info("temperature: {d}", .{input.temperature});
-    std.log.info("step_avg:    {d}", .{input.step_avg});
-    std.log.info("step_eq:     {d}", .{input.step_eq});
-    std.log.info("step_total:  {d}", .{input.step_total});
-
-    //getNameList(argc, argv);
-    //printNameList(stdout);
     //setParams();
     //setupJob();
     //more_cycles = 1;
