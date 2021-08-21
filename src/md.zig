@@ -29,7 +29,7 @@ pub fn main() anyerror!void {
 
     var i: usize = 0;
     while (i < input.step_total) : (i += 1) {
-        std.debug.print("i: {d}\n", .{i});
+        system.step();
     }
 }
 
