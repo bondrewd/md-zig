@@ -1,6 +1,7 @@
 const std = @import("std");
 const argparse = @import("argparse-zig/src/argparse.zig");
 
+const Input = @import("input.zig").Input;
 const ArgumentParser = argparse.ArgumentParser;
 const ArgumentParserOption = argparse.ArgumentParserOption;
 
@@ -19,8 +20,15 @@ pub fn main() anyerror!void {
     const args = try ArgParser.parse(allocator);
     defer ArgParser.deinitArgs(args);
 
-    std.log.info("Input file:  {s}", .{args.input});
-    std.log.info("Output file: {s}", .{args.output});
+    const input = try Input.init(args.input);
+
+    std.log.info("dt:          {d}", .{input.dt});
+    std.log.info("density:     {d}", .{input.density});
+    std.log.info("cell:        {d} {d} {d}", .{ input.cell[0], input.cell[1], input.cell[2] });
+    std.log.info("temperature: {d}", .{input.temperature});
+    std.log.info("step_avg:    {d}", .{input.step_avg});
+    std.log.info("step_eq:     {d}", .{input.step_eq});
+    std.log.info("step_total:  {d}", .{input.step_total});
 
     //getNameList(argc, argv);
     //printNameList(stdout);
