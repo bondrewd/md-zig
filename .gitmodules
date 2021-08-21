@@ -1,3 +1,6 @@
 [submodule "src/argparse-zig"]
 	path = src/argparse-zig
 	url = git@github.com:bondrewd/argparse-zig.git
+[submodule "src/ansi-zig"]
+	path = src/ansi-zig
+	url = git@github.com:bondrewd/ansi-zig.git
