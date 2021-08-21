@@ -1,11 +1,19 @@
 const std = @import("std");
+const ansi = @import("ansi-zig/src/ansi.zig");
 
 const Input = @import("input.zig").Input;
 const System = @import("system.zig").System;
+const ProgressBar = @import("bar.zig").ProgressBar;
 
 const argparse = @import("argparse-zig/src/argparse.zig");
 const ArgumentParser = argparse.ArgumentParser;
 const ArgumentParserOption = argparse.ArgumentParserOption;
+
+// Ansi format
+const reset = ansi.reset;
+const bold = ansi.bold_on;
+const blue = ansi.fg_light_blue;
+const yellow = ansi.fg_light_yellow;
 
 pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -27,9 +35,15 @@ pub fn main() anyerror!void {
     defer system.deinit();
     try system.displayInfo();
 
+    const stdout = std.io.getStdOut().writer();
+    const bar = ProgressBar.init(stdout, .{});
+
+    try stdout.writeAll(bold ++ yellow ++ "> PROGRESS:\n" ++ reset);
+
     var i: usize = 0;
     while (i < input.step_total) : (i += 1) {
         system.step();
+        try bar.displayProgress(i, 0, input.step_total - 1);
     }
 }
 
