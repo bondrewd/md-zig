@@ -1,6 +1,6 @@
 dt           0.005
 density      0.8
-cell         6 6 6
+cell         10 10 10
 temperature  1.0
 step_save    10
 step_total   1000

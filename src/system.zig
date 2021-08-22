@@ -1,6 +1,7 @@
 const std = @import("std");
 const vec = @import("vec.zig");
 const Vec = @import("vec.zig").Vec;
+const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
 const ansi = @import("ansi-zig/src/ansi.zig");
 
@@ -9,12 +10,6 @@ const reset = ansi.reset;
 const bold = ansi.bold_on;
 const blue = ansi.fg_light_blue;
 const yellow = ansi.fg_light_yellow;
-
-pub const Atom = struct {
-    r: Vec = .{},
-    v: Vec = .{},
-    a: Vec = .{},
-};
 
 pub const System = struct {
     dt: Real = undefined,
@@ -136,9 +131,9 @@ pub const System = struct {
         }
     }
 
-    pub fn initAccelerations(self: *Self) void {
+    pub fn initForces(self: *Self) void {
         for (self.atoms.items) |*atom| {
-            atom.a = Vec{};
+            atom.f = Vec{};
         }
     }
 
@@ -153,8 +148,8 @@ pub const System = struct {
         // Init velocities
         try self.initVelocities();
 
-        // Init accelerations
-        self.initAccelerations();
+        // Init forcer
+        self.initForces();
     }
 
     pub fn updateKineticEnergy(self: *Self) void {
@@ -205,9 +200,9 @@ pub const System = struct {
         const rr_cut = std.math.pow(Real, 2.0, 1.0 / 3.0);
 
         for (self.atoms.items) |*atom| {
-            atom.a.x = 0.0;
-            atom.a.y = 0.0;
-            atom.a.z = 0.0;
+            atom.f.x = 0.0;
+            atom.f.y = 0.0;
+            atom.f.z = 0.0;
         }
 
         var i: usize = 0;
@@ -229,20 +224,30 @@ pub const System = struct {
                     const f = 48.0 * rri3 * (rri3 - 0.5) * rri;
                     const force = vec.scale(rij, f);
 
-                    self.atoms.items[i].a = vec.add(self.atoms.items[i].a, force);
-                    self.atoms.items[j].a = vec.sub(self.atoms.items[j].a, force);
+                    self.atoms.items[i].f = vec.add(self.atoms.items[i].f, force);
+                    self.atoms.items[j].f = vec.sub(self.atoms.items[j].f, force);
                 }
             }
         }
     }
 
-    pub fn step(self: *Self) void {
+    pub fn integrateLeapFrog(self: *Self) void {
         for (self.atoms.items) |*atom| {
-            atom.v = vec.add(atom.v, vec.scale(atom.a, self.dt / 2.0));
+            // v(t + dt/2) = v(t) + f(t) * dt/2m
+            atom.v = vec.add(atom.v, vec.scale(atom.f, 0.5 * self.dt / atom.m));
+            // r(t + dt) = r(t) + v(t + dt/2) * dt
             atom.r = vec.add(atom.r, vec.scale(atom.v, self.dt));
-            self.calculateForces();
-            atom.v = vec.add(atom.v, vec.scale(atom.a, self.dt / 2.0));
         }
+        // f(t + dt) = -dU(t + dt)/dt
+        self.calculateForces();
+        for (self.atoms.items) |*atom| {
+            // v(t + dt) = v(t + dt/2) + f(t + dt) * dt/2m
+            atom.v = vec.add(atom.v, vec.scale(atom.f, 0.5 * self.dt / atom.m));
+        }
+    }
+
+    pub fn step(self: *Self) void {
+        self.integrateLeapFrog();
     }
 
     pub fn displayInfo(self: Self) !void {
