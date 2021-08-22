@@ -231,25 +231,6 @@ pub const System = struct {
         }
     }
 
-    pub fn integrateLeapFrog(self: *Self) void {
-        for (self.atoms.items) |*atom| {
-            // v(t + dt/2) = v(t) + f(t) * dt/2m
-            atom.v = vec.add(atom.v, vec.scale(atom.f, 0.5 * self.dt / atom.m));
-            // r(t + dt) = r(t) + v(t + dt/2) * dt
-            atom.r = vec.add(atom.r, vec.scale(atom.v, self.dt));
-        }
-        // f(t + dt) = -dU(t + dt)/dt
-        self.calculateForces();
-        for (self.atoms.items) |*atom| {
-            // v(t + dt) = v(t + dt/2) + f(t + dt) * dt/2m
-            atom.v = vec.add(atom.v, vec.scale(atom.f, 0.5 * self.dt / atom.m));
-        }
-    }
-
-    pub fn step(self: *Self) void {
-        self.integrateLeapFrog();
-    }
-
     pub fn displayInfo(self: Self) !void {
         // Get stdout
         const stdout = std.io.getStdOut().writer();

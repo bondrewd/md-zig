@@ -4,7 +4,8 @@ const ansi = @import("ansi-zig/src/ansi.zig");
 const Input = @import("input.zig").Input;
 const System = @import("system.zig").System;
 const Reporter = @import("reporter.zig").Reporter;
-const ProgressBar = @import("bar.zig").ProgressBar;
+const Integrator = @import("integrator.zig").Integrator;
+const ProgressBar = @import("progress_bar.zig").ProgressBar;
 
 const argparse = @import("argparse-zig/src/argparse.zig");
 const ArgumentParser = argparse.ArgumentParser;
@@ -36,6 +37,8 @@ pub fn main() anyerror!void {
     defer system.deinit();
     try system.displayInfo();
 
+    const integrator = Integrator(.LeapFrog).init(&system);
+
     const of = try std.fs.cwd().createFile(args.output, .{});
     const ow = of.writer();
     const reporter = Reporter.init(&system);
@@ -43,14 +46,14 @@ pub fn main() anyerror!void {
     try reporter.report(ow, 0);
 
     const stdout = std.io.getStdOut().writer();
-    const bar = ProgressBar.init(stdout, .{});
+    const progress_bar = ProgressBar.init(stdout, .{});
 
     try stdout.writeAll(bold ++ yellow ++ "> PROGRESS:\n" ++ reset);
 
     var istep: usize = 1;
     while (istep <= input.step_total) : (istep += 1) {
-        system.step();
-        try bar.displayProgress(istep, 1, input.step_total);
+        integrator.step();
+        try progress_bar.displayProgress(istep, 1, input.step_total);
 
         if (istep % input.step_save == 0) {
             system.updateEnergies();
