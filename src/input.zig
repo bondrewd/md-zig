@@ -15,10 +15,8 @@ pub const Input = struct {
     dt: Real,
     density: Real,
     temperature: Real,
-    n_atoms: u64,
-    cell: [3]Real,
-    step_avg: u64,
-    step_eq: u64,
+    cell: [3]u64,
+    step_save: u64,
     step_total: u64,
 
     const Self = @This();
@@ -51,18 +49,9 @@ pub const Input = struct {
                     } else {
                         try stopWithErrorMsg("density value is absent!");
                     }
-                } else if (mem.eql(u8, token, "n_atoms")) {
-                    if (tokens.next()) |n_atoms| {
-                        input.n_atoms = fmt.parseInt(u64, n_atoms, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid n_atoms value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("n_atoms value is absent!");
-                    }
                 } else if (mem.eql(u8, token, "cell")) {
                     if (tokens.next()) |cell_x| {
-                        input.cell[0] = fmt.parseFloat(Real, cell_x) catch blk: {
+                        input.cell[0] = fmt.parseInt(u64, cell_x, 10) catch blk: {
                             try stopWithErrorMsg("Invalid cell X value!");
                             break :blk 0;
                         };
@@ -70,7 +59,7 @@ pub const Input = struct {
                         try stopWithErrorMsg("cell X value is absent!");
                     }
                     if (tokens.next()) |cell_y| {
-                        input.cell[1] = fmt.parseFloat(Real, cell_y) catch blk: {
+                        input.cell[1] = fmt.parseInt(u64, cell_y, 10) catch blk: {
                             try stopWithErrorMsg("Invalid cell Y value!");
                             break :blk 0;
                         };
@@ -78,7 +67,7 @@ pub const Input = struct {
                         try stopWithErrorMsg("cell Y value is absent!");
                     }
                     if (tokens.next()) |cell_z| {
-                        input.cell[2] = fmt.parseFloat(Real, cell_z) catch blk: {
+                        input.cell[2] = fmt.parseInt(u64, cell_z, 10) catch blk: {
                             try stopWithErrorMsg("Invalid cell Z value!");
                             break :blk 0;
                         };
@@ -94,23 +83,14 @@ pub const Input = struct {
                     } else {
                         try stopWithErrorMsg("temperature value is absent!");
                     }
-                } else if (mem.eql(u8, token, "step_avg")) {
-                    if (tokens.next()) |step_avg| {
-                        input.step_avg = fmt.parseInt(u64, step_avg, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid step_avg value!");
+                } else if (mem.eql(u8, token, "step_save")) {
+                    if (tokens.next()) |step_save| {
+                        input.step_save = fmt.parseInt(u64, step_save, 10) catch blk: {
+                            try stopWithErrorMsg("Invalid step_save value!");
                             break :blk 0;
                         };
                     } else {
-                        try stopWithErrorMsg("step_avg value is absent!");
-                    }
-                } else if (mem.eql(u8, token, "step_eq")) {
-                    if (tokens.next()) |step_eq| {
-                        input.step_eq = fmt.parseInt(u64, step_eq, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid step_eq value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("step_eq value is absent!");
+                        try stopWithErrorMsg("step_save value is absent!");
                     }
                 } else if (mem.eql(u8, token, "step_total")) {
                     if (tokens.next()) |step_total| {
@@ -134,16 +114,14 @@ pub const Input = struct {
 
         // Print header
         try stdout.writeAll(bold ++ yellow ++ "> INPUT:\n" ++ reset);
-        try stdout.print(bold ++ blue ++ "    n_atoms:     " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.n_atoms});
         try stdout.writeAll("\n");
         try stdout.print(bold ++ blue ++ "    dt:          " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.dt});
         try stdout.print(bold ++ blue ++ "    density:     " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.density});
         try stdout.print(bold ++ blue ++ "    temperature: " ++ reset ++ bold ++ "{d:<6.2}" ++ reset ++ "\n", .{self.temperature});
         try stdout.writeAll("\n");
-        try stdout.print(bold ++ blue ++ "    cell:        " ++ reset ++ bold ++ "{d:<7.2} {d:<7.2} {d:<7.2}" ++ reset ++ "\n", .{ self.cell[0], self.cell[1], self.cell[2] });
+        try stdout.print(bold ++ blue ++ "    cell:        " ++ reset ++ bold ++ "{d:<7} {d:<7} {d:<7}" ++ reset ++ "\n", .{ self.cell[0], self.cell[1], self.cell[2] });
         try stdout.writeAll("\n");
-        try stdout.print(bold ++ blue ++ "    step_avg:    " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_avg});
-        try stdout.print(bold ++ blue ++ "    step_eq:     " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_eq});
+        try stdout.print(bold ++ blue ++ "    step_save:   " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_save});
         try stdout.print(bold ++ blue ++ "    step_total:  " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_total});
     }
 };

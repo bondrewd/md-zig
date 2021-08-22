@@ -29,7 +29,7 @@ pub fn main() anyerror!void {
     var system = try System.init(allocator, .{
         .dt = input.dt,
         .cell = input.cell,
-        .n_atoms = input.n_atoms,
+        .density = input.density,
         .temperature = input.temperature,
     });
     defer system.deinit();

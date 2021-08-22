@@ -17,10 +17,12 @@ pub const Atom = struct {
 };
 
 pub const System = struct {
-    dt: Real,
-    cell: Vec,
-    atoms: std.ArrayList(Atom),
-    energy: Energy,
+    dt: Real = undefined,
+    region: Vec = undefined,
+    cell: [3]u64 = undefined,
+    energy: Energy = undefined,
+    atoms: std.ArrayList(Atom) = undefined,
+    target_temperature: Real = undefined,
 
     const Energy = struct {
         kinetic: Real = 0,
@@ -32,26 +34,27 @@ pub const System = struct {
 
     const Configuration = struct {
         dt: Real,
-        cell: [3]Real,
-        n_atoms: usize,
+        cell: [3]u64,
+        density: Real,
         temperature: Real,
     };
 
     pub fn init(allocator: *std.mem.Allocator, config: Configuration) !Self {
-        var system: System = .{
-            .dt = 0,
-            .cell = .{},
-            .atoms = std.ArrayList(Atom).init(allocator),
-            .energy = .{},
-        };
+        var system = System{};
 
         system.dt = config.dt;
+        system.target_temperature = config.temperature;
+        system.cell[0] = config.cell[0];
+        system.cell[1] = config.cell[1];
+        system.cell[2] = config.cell[2];
 
-        system.cell.x = config.cell[0];
-        system.cell.y = config.cell[1];
-        system.cell.z = config.cell[2];
+        const linear_density = std.math.pow(Real, config.density, 1.0 / 3.0);
 
-        try system.initAtoms(config.n_atoms, config.temperature);
+        system.region.x = @intToFloat(Real, config.cell[0]) * linear_density;
+        system.region.y = @intToFloat(Real, config.cell[1]) * linear_density;
+        system.region.z = @intToFloat(Real, config.cell[2]) * linear_density;
+
+        try system.initAtoms(allocator);
 
         system.updateEnergies();
 
@@ -62,8 +65,9 @@ pub const System = struct {
         self.atoms.deinit();
     }
 
-    pub fn addAtoms(self: *Self, n_atoms: usize) !void {
+    pub fn addAtoms(self: *Self) !void {
         var i: usize = 0;
+        const n_atoms = self.cell[0] * self.cell[1] * self.cell[2];
         while (i < n_atoms) : (i += 1) {
             try self.atoms.append(Atom{});
         }
@@ -71,17 +75,33 @@ pub const System = struct {
 
     pub fn initPositions(self: *Self) void {
         const cell = self.cell;
-        const n_atoms = @intToFloat(Real, self.atoms.items.len);
-        const delta = vec.scale(self.cell, 1.0 / (n_atoms + 1));
+        const region = self.region;
 
-        for (self.atoms.items) |*atom, i| {
-            atom.r.x = -0.5 * cell.x + (@intToFloat(Real, i) + 0.5) * delta.x * cell.x;
-            atom.r.y = -0.5 * cell.y + (@intToFloat(Real, i) + 0.5) * delta.y * cell.y;
-            atom.r.z = -0.5 * cell.z + (@intToFloat(Real, i) + 0.5) * delta.z * cell.z;
+        const delta = Vec{
+            .x = region.x / @intToFloat(Real, cell[0]),
+            .y = region.y / @intToFloat(Real, cell[1]),
+            .z = region.z / @intToFloat(Real, cell[2]),
+        };
+
+        var iz: usize = 0;
+        while (iz < cell[2]) : (iz += 1) {
+            var iy: usize = 0;
+            while (iy < cell[1]) : (iy += 1) {
+                var ix: usize = 0;
+                while (ix < cell[0]) : (ix += 1) {
+                    const iatom = ix + iy * cell[0] + iz * cell[0] * cell[1];
+
+                    self.atoms.items[iatom].r = Vec{
+                        .x = -0.5 * region.x + (@intToFloat(Real, ix) + 0.5) * delta.x,
+                        .y = -0.5 * region.y + (@intToFloat(Real, iy) + 0.5) * delta.y,
+                        .z = -0.5 * region.z + (@intToFloat(Real, iz) + 0.5) * delta.z,
+                    };
+                }
+            }
         }
     }
 
-    pub fn initVelocities(self: *Self, temp: Real) !void {
+    pub fn initVelocities(self: *Self) !void {
         // Initialize random number generator
         var prng = std.rand.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
@@ -93,7 +113,7 @@ pub const System = struct {
         // Initialize local variables
         var v_sum = Vec{};
         const n_atoms = @intToFloat(Real, self.atoms.items.len);
-        const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * temp);
+        const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * self.target_temperature);
 
         // Initialize with random velocities
         for (self.atoms.items) |*atom| {
@@ -121,10 +141,18 @@ pub const System = struct {
         }
     }
 
-    pub fn initAtoms(self: *Self, n_atoms: usize, temp: Real) !void {
-        try self.addAtoms(n_atoms);
+    pub fn initAtoms(self: *Self, allocator: *std.mem.Allocator) !void {
+        // Allocate atoms
+        self.atoms = std.ArrayList(Atom).init(allocator);
+        try self.addAtoms();
+
+        // Init positions
         self.initPositions();
-        try self.initVelocities(temp);
+
+        // Init velocities
+        try self.initVelocities();
+
+        // Init accelerations
         self.initAccelerations();
     }
 
@@ -151,7 +179,7 @@ pub const System = struct {
 
                 var rij: Vec = undefined;
                 rij = vec.sub(iatom.r, jatom.r);
-                rij = vec.wrap(rij, self.cell);
+                rij = vec.wrap(rij, self.region);
 
                 const rr = vec.dot(rij, rij);
                 if (rr < rr_cut) {
@@ -190,7 +218,7 @@ pub const System = struct {
 
                 var rij: Vec = undefined;
                 rij = vec.sub(iatom.r, jatom.r);
-                rij = vec.wrap(rij, self.cell);
+                rij = vec.wrap(rij, self.region);
 
                 const rr = vec.dot(rij, rij);
                 if (rr < rr_cut) {
