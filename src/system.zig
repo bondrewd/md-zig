@@ -1,6 +1,5 @@
 const std = @import("std");
 const vec = @import("vec.zig");
-const Vec = @import("vec.zig").Vec;
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
 const ansi = @import("ansi-zig/src/ansi.zig");
@@ -13,7 +12,7 @@ const yellow = ansi.fg_light_yellow;
 
 pub const System = struct {
     dt: Real = undefined,
-    region: Vec = undefined,
+    region: vec.Vec = undefined,
     cell: [3]u64 = undefined,
     energy: Energy = undefined,
     atoms: std.ArrayList(Atom) = undefined,
@@ -73,7 +72,7 @@ pub const System = struct {
         const cell = self.cell;
         const region = self.region;
 
-        const delta = Vec{
+        const delta = vec.Vec{
             .x = region.x / @intToFloat(Real, cell[0]),
             .y = region.y / @intToFloat(Real, cell[1]),
             .z = region.z / @intToFloat(Real, cell[2]),
@@ -87,7 +86,7 @@ pub const System = struct {
                 while (ix < cell[0]) : (ix += 1) {
                     const iatom = ix + iy * cell[0] + iz * cell[0] * cell[1];
 
-                    self.atoms.items[iatom].r = Vec{
+                    self.atoms.items[iatom].r = vec.Vec{
                         .x = -0.5 * region.x + (@intToFloat(Real, ix) + 0.5) * delta.x,
                         .y = -0.5 * region.y + (@intToFloat(Real, iy) + 0.5) * delta.y,
                         .z = -0.5 * region.z + (@intToFloat(Real, iz) + 0.5) * delta.z,
@@ -107,14 +106,14 @@ pub const System = struct {
         const rand = &prng.random;
 
         // Initialize local variables
-        var v_sum = Vec{};
+        var v_sum = vec.Vec{};
         const n_atoms = @intToFloat(Real, self.atoms.items.len);
         const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * self.target_temperature);
 
         // Initialize with random velocities
         for (self.atoms.items) |*atom| {
             // Create a random unit vector
-            var v_random = Vec{ .x = rand.float(Real), .y = rand.float(Real), .z = rand.float(Real) };
+            var v_random = vec.Vec{ .x = rand.float(Real), .y = rand.float(Real), .z = rand.float(Real) };
             v_random = vec.normalize(v_random);
 
             // Assign random velocity
@@ -133,7 +132,7 @@ pub const System = struct {
 
     pub fn initForces(self: *Self) void {
         for (self.atoms.items) |*atom| {
-            atom.f = Vec{};
+            atom.f = vec.Vec{};
         }
     }
 
@@ -174,7 +173,7 @@ pub const System = struct {
             while (j < self.atoms.items.len) : (j += 1) {
                 const jatom = self.atoms.items[j];
 
-                var rij: Vec = undefined;
+                var rij: vec.Vec = undefined;
                 rij = vec.sub(iatom.r, jatom.r);
                 rij = vec.wrap(rij, self.region);
 
@@ -213,7 +212,7 @@ pub const System = struct {
             while (j < self.atoms.items.len) : (j += 1) {
                 const jatom = self.atoms.items[j];
 
-                var rij: Vec = undefined;
+                var rij: vec.Vec = undefined;
                 rij = vec.sub(iatom.r, jatom.r);
                 rij = vec.wrap(rij, self.region);
 
