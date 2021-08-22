@@ -11,7 +11,6 @@ const ArgumentParser = argparse.ArgumentParser;
 const ArgumentParserOption = argparse.ArgumentParserOption;
 
 const bold = @import("config.zig").bold;
-const blue = @import("config.zig").blue;
 const reset = @import("config.zig").reset;
 const yellow = @import("config.zig").yellow;
 
