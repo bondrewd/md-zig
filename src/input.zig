@@ -24,6 +24,8 @@ pub const Input = struct {
     pub fn init(input_file: []const u8) !Self {
         var input: Input = undefined;
 
+        var flags = [_]bool{false} ** 6;
+
         const f = try std.fs.cwd().openFile(input_file, .{ .read = true });
         const r = f.reader();
 
@@ -32,6 +34,7 @@ pub const Input = struct {
             var tokens = mem.tokenize(u8, line, " ");
             while (tokens.next()) |token| {
                 if (mem.eql(u8, token, "dt")) {
+                    flags[0] = true;
                     if (tokens.next()) |dt| {
                         input.dt = fmt.parseFloat(Real, dt) catch blk: {
                             try stopWithErrorMsg("Invalid dt value!");
@@ -41,6 +44,7 @@ pub const Input = struct {
                         try stopWithErrorMsg("dt value is absent!");
                     }
                 } else if (mem.eql(u8, token, "density")) {
+                    flags[1] = true;
                     if (tokens.next()) |density| {
                         input.density = fmt.parseFloat(Real, density) catch blk: {
                             try stopWithErrorMsg("Invalid density value!");
@@ -50,6 +54,7 @@ pub const Input = struct {
                         try stopWithErrorMsg("density value is absent!");
                     }
                 } else if (mem.eql(u8, token, "cell")) {
+                    flags[2] = true;
                     if (tokens.next()) |cell_x| {
                         input.cell[0] = fmt.parseInt(u64, cell_x, 10) catch blk: {
                             try stopWithErrorMsg("Invalid cell X value!");
@@ -75,6 +80,7 @@ pub const Input = struct {
                         try stopWithErrorMsg("cell Z value is absent!");
                     }
                 } else if (mem.eql(u8, token, "temperature")) {
+                    flags[3] = true;
                     if (tokens.next()) |temperature| {
                         input.temperature = fmt.parseFloat(Real, temperature) catch blk: {
                             try stopWithErrorMsg("Invalid temperature value!");
@@ -84,6 +90,7 @@ pub const Input = struct {
                         try stopWithErrorMsg("temperature value is absent!");
                     }
                 } else if (mem.eql(u8, token, "step_save")) {
+                    flags[4] = true;
                     if (tokens.next()) |step_save| {
                         input.step_save = fmt.parseInt(u64, step_save, 10) catch blk: {
                             try stopWithErrorMsg("Invalid step_save value!");
@@ -93,16 +100,26 @@ pub const Input = struct {
                         try stopWithErrorMsg("step_save value is absent!");
                     }
                 } else if (mem.eql(u8, token, "step_total")) {
+                    flags[5] = true;
                     if (tokens.next()) |step_total| {
                         input.step_total = fmt.parseInt(u64, step_total, 10) catch blk: {
                             try stopWithErrorMsg("Invalid step_total value!");
                             break :blk 0;
                         };
                     } else {
-                        try stopWithErrorMsg("step_total value is absent!\n");
+                        try stopWithErrorMsg("step_total value is absent!");
                     }
                 }
             }
+        }
+
+        for (flags) |flag, i| {
+            if (!flag and i == 0) try stopWithErrorMsg("missing dt in input file!");
+            if (!flag and i == 1) try stopWithErrorMsg("missing density in input file!");
+            if (!flag and i == 2) try stopWithErrorMsg("missing temperature in input file!");
+            if (!flag and i == 3) try stopWithErrorMsg("missing cell in input file!");
+            if (!flag and i == 4) try stopWithErrorMsg("missing step_save in input file!");
+            if (!flag and i == 5) try stopWithErrorMsg("missing step_total in input file!");
         }
 
         return input;

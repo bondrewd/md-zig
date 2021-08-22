@@ -1,4 +1,3 @@
-n_atoms      100
 dt           0.005
 density      0.8
 cell         6 6 6
