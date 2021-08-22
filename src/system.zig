@@ -23,6 +23,7 @@ pub const System = struct {
     energy: Energy = undefined,
     atoms: std.ArrayList(Atom) = undefined,
     target_temperature: Real = undefined,
+    temperature: Real = undefined,
 
     const Energy = struct {
         kinetic: Real = 0,
@@ -162,6 +163,7 @@ pub const System = struct {
             kinetic += vec.dot(atom.v, atom.v);
         }
 
+        self.temperature = kinetic / (3.0 * (self.atoms.items.len - 1.0));
         self.energy.kinetic = 0.5 * kinetic;
     }
 
