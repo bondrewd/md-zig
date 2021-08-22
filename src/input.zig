@@ -114,14 +114,11 @@ pub const Input = struct {
 
         // Print header
         try stdout.writeAll(bold ++ yellow ++ "> INPUT:\n" ++ reset);
-        try stdout.writeAll("\n");
-        try stdout.print(bold ++ blue ++ "    dt:          " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.dt});
-        try stdout.print(bold ++ blue ++ "    density:     " ++ reset ++ bold ++ "{d:<5.3}" ++ reset ++ "\n", .{self.density});
-        try stdout.print(bold ++ blue ++ "    temperature: " ++ reset ++ bold ++ "{d:<6.2}" ++ reset ++ "\n", .{self.temperature});
-        try stdout.writeAll("\n");
-        try stdout.print(bold ++ blue ++ "    cell:        " ++ reset ++ bold ++ "{d:<7} {d:<7} {d:<7}" ++ reset ++ "\n", .{ self.cell[0], self.cell[1], self.cell[2] });
-        try stdout.writeAll("\n");
-        try stdout.print(bold ++ blue ++ "    step_save:   " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_save});
-        try stdout.print(bold ++ blue ++ "    step_total:  " ++ reset ++ bold ++ "{d:<10}" ++ reset ++ "\n", .{self.step_total});
+        try stdout.print(bold ++ blue ++ "    dt:           " ++ reset ++ "{d:<5.3}\n", .{self.dt});
+        try stdout.print(bold ++ blue ++ "    density:      " ++ reset ++ "{d:<5.3}\n", .{self.density});
+        try stdout.print(bold ++ blue ++ "    temperature:  " ++ reset ++ "{d:<6.2}\n", .{self.temperature});
+        try stdout.print(bold ++ blue ++ "    cell:         " ++ reset ++ "{d:<7} {d:<7} {d:<7}\n", .{ self.cell[0], self.cell[1], self.cell[2] });
+        try stdout.print(bold ++ blue ++ "    step_save:    " ++ reset ++ "{d:<10}\n", .{self.step_save});
+        try stdout.print(bold ++ blue ++ "    step_total:   " ++ reset ++ "{d:<10}\n", .{self.step_total});
     }
 };

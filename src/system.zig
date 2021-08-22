@@ -250,8 +250,10 @@ pub const System = struct {
         // Print header
         try stdout.writeAll(bold ++ yellow ++ "> SYSTEM:\n" ++ reset);
         // Print values
-        try stdout.print(bold ++ blue ++ "    Total:      " ++ reset ++ bold ++ "{e:>12.5}" ++ reset ++ "\n", .{self.energy.total});
-        try stdout.print(bold ++ blue ++ "    Kinetic:    " ++ reset ++ bold ++ "{e:>12.5}" ++ reset ++ "\n", .{self.energy.kinetic});
-        try stdout.print(bold ++ blue ++ "    Potential:  " ++ reset ++ bold ++ "{e:>12.5}" ++ reset ++ "\n", .{self.energy.potential});
+        try stdout.print(bold ++ blue ++ "    Total:        " ++ reset ++ "{e:<12.5}\n", .{self.energy.total});
+        try stdout.print(bold ++ blue ++ "      Kinetic:    " ++ reset ++ "{e:<12.5}\n", .{self.energy.kinetic});
+        try stdout.print(bold ++ blue ++ "      Potential:  " ++ reset ++ "{e:<12.5}\n", .{self.energy.potential});
+        try stdout.print(bold ++ blue ++ "    Region:       " ++ reset ++ "{d:<8.3} {d:<8.3} {d:<8.3}\n", .{ self.region.x, self.region.y, self.region.z });
+        try stdout.print(bold ++ blue ++ "    Particles:    " ++ reset ++ "{d:<8}\n", .{self.atoms.items.len});
     }
 };
