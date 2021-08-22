@@ -163,7 +163,7 @@ pub const System = struct {
             kinetic += vec.dot(atom.v, atom.v);
         }
 
-        self.temperature = kinetic / (3.0 * (self.atoms.items.len - 1.0));
+        self.temperature = kinetic / (3.0 * (@intToFloat(Real, self.atoms.items.len) - 1.0));
         self.energy.kinetic = 0.5 * kinetic;
     }
 

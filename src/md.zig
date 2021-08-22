@@ -3,6 +3,7 @@ const ansi = @import("ansi-zig/src/ansi.zig");
 
 const Input = @import("input.zig").Input;
 const System = @import("system.zig").System;
+const Reporter = @import("reporter.zig").Reporter;
 const ProgressBar = @import("bar.zig").ProgressBar;
 
 const argparse = @import("argparse-zig/src/argparse.zig");
@@ -35,15 +36,25 @@ pub fn main() anyerror!void {
     defer system.deinit();
     try system.displayInfo();
 
+    const of = try std.fs.cwd().createFile(args.output, .{});
+    const ow = of.writer();
+    const reporter = Reporter.init(&system);
+    try reporter.writeHeader(ow);
+
     const stdout = std.io.getStdOut().writer();
     const bar = ProgressBar.init(stdout, .{});
 
     try stdout.writeAll(bold ++ yellow ++ "> PROGRESS:\n" ++ reset);
 
-    var i: usize = 0;
-    while (i < input.step_total) : (i += 1) {
+    var istep: usize = 1;
+    while (istep <= input.step_total) : (istep += 1) {
         system.step();
-        try bar.displayProgress(i, 0, input.step_total - 1);
+        try bar.displayProgress(istep, 1, input.step_total);
+
+        if (istep % input.step_save == 0) {
+            system.updateEnergies();
+            try reporter.report(ow, istep);
+        }
     }
 }
 
