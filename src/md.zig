@@ -40,6 +40,7 @@ pub fn main() anyerror!void {
     const ow = of.writer();
     const reporter = Reporter.init(&system);
     try reporter.writeHeader(ow);
+    try reporter.report(ow, 0);
 
     const stdout = std.io.getStdOut().writer();
     const bar = ProgressBar.init(stdout, .{});
