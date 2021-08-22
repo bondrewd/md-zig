@@ -1,10 +1,8 @@
 const std = @import("std");
-const ansi = @import("ansi-zig/src/ansi.zig");
 
-// Ansi format
-const reset = ansi.reset;
-const bold = ansi.bold_on;
-const red = ansi.fg_light_red;
+const red = @import("config.zig").red;
+const bold = @import("config.zig").bold;
+const reset = @import("config.zig").reset;
 
 pub fn stopWithErrorMsg(error_msg: []const u8) !void {
     // Get stdout

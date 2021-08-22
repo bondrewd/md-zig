@@ -2,13 +2,10 @@ const std = @import("std");
 const vec = @import("vec.zig");
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
-const ansi = @import("ansi-zig/src/ansi.zig");
-
-// Ansi format
-const reset = ansi.reset;
-const bold = ansi.bold_on;
-const blue = ansi.fg_light_blue;
-const yellow = ansi.fg_light_yellow;
+const bold = @import("config.zig").bold;
+const blue = @import("config.zig").blue;
+const reset = @import("config.zig").reset;
+const yellow = @import("config.zig").yellow;
 
 pub const System = struct {
     dt: Real = undefined,
