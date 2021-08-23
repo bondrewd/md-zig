@@ -11,6 +11,8 @@ const Declaration = TypeInfo.Declaration;
 pub const InputParserConfiguration = struct {
     line_buffer_size: usize = 1024,
     separator: []const u8 = " ",
+    section_opening: []const u8 = "[",
+    section_closing: []const u8 = "]",
 };
 
 pub const InputParserEntry = struct {
@@ -73,9 +75,9 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                 if (mem.startsWith(u8, line, "#")) continue;
 
                 // Check for section
-                if (mem.startsWith(u8, line, "[")) {
-                    const closing_bracket = mem.indexOf(u8, line, "]");
-                    if (closing_bracket) |index| {
+                if (mem.startsWith(u8, line, config.section_opening)) {
+                    const closing_symbol = mem.indexOf(u8, line, config.section_closing);
+                    if (closing_symbol) |index| {
                         mem.set(u8, &current_section, ' ');
                         mem.copy(u8, &current_section, line[1..index]);
                         continue;
