@@ -2,10 +2,6 @@ const std = @import("std");
 const vec = @import("vec.zig");
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
-const bold = @import("config.zig").bold;
-const blue = @import("config.zig").blue;
-const reset = @import("config.zig").reset;
-const yellow = @import("config.zig").yellow;
 
 pub const System = struct {
     dt: Real = undefined,
@@ -225,19 +221,5 @@ pub const System = struct {
                 }
             }
         }
-    }
-
-    pub fn displayInfo(self: Self) !void {
-        // Get stdout
-        const stdout = std.io.getStdOut().writer();
-
-        // Print header
-        try stdout.writeAll(bold ++ yellow ++ "> SYSTEM:\n" ++ reset);
-        // Print values
-        try stdout.print(bold ++ blue ++ "    Total:        " ++ reset ++ "{e:<12.5}\n", .{self.energy.total});
-        try stdout.print(bold ++ blue ++ "      Kinetic:    " ++ reset ++ "{e:<12.5}\n", .{self.energy.kinetic});
-        try stdout.print(bold ++ blue ++ "      Potential:  " ++ reset ++ "{e:<12.5}\n", .{self.energy.potential});
-        try stdout.print(bold ++ blue ++ "    Region:       " ++ reset ++ "{d:<8.3} {d:<8.3} {d:<8.3}\n", .{ self.region.x, self.region.y, self.region.z });
-        try stdout.print(bold ++ blue ++ "    Particles:    " ++ reset ++ "{d:<8}\n", .{self.atoms.items.len});
     }
 };
