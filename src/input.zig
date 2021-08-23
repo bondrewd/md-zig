@@ -4,136 +4,196 @@ const mem = std.mem;
 const Real = @import("config.zig").Real;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 
-const bold = @import("config.zig").bold;
-const blue = @import("config.zig").blue;
-const reset = @import("config.zig").reset;
-const yellow = @import("config.zig").yellow;
+const TypeInfo = std.builtin.TypeInfo;
+const StructField = TypeInfo.StructField;
+const Declaration = TypeInfo.Declaration;
 
-pub const Input = struct {
-    dt: Real,
-    density: Real,
-    temperature: Real,
-    cell: [3]u64,
-    step_save: u64,
-    step_total: u64,
+pub const InputParserConfiguration = struct {
+    line_buffer_size: usize = 1024,
+    separator: []const u8 = " ",
+};
 
-    const Self = @This();
+pub const InputParserEntry = struct {
+    name: []const u8,
+    entry_type: type = bool,
+    section: []const u8,
+    default_value: ?union { int: comptime_int, float: comptime_float, string: []const u8, boolean: bool } = null,
+};
 
-    pub fn init(input_file: []const u8) !Self {
-        var input: Input = undefined;
+pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: anytype) type {
+    return struct {
+        const Self = @This();
 
-        var flags = [_]bool{false} ** 6;
+        pub const InputParserResult = blk: {
+            // Struct fields
+            var fields: [entries.len]StructField = undefined;
+            inline for (entries) |entry, i| {
+                // Validate entry
+                fields[i] = .{
+                    .name = entry.name,
+                    .field_type = entry.entry_type,
+                    .default_value = null,
+                    .is_comptime = false,
+                    .alignment = @alignOf(entry.entry_type),
+                };
+            }
 
-        const f = try std.fs.cwd().openFile(input_file, .{ .read = true });
-        const r = f.reader();
+            // Struct declarations
+            var decls: [0]Declaration = .{};
 
-        var buffer: [1024]u8 = undefined;
-        while (try r.readUntilDelimiterOrEof(&buffer, '\n')) |line| {
-            var tokens = mem.tokenize(u8, line, " ");
-            while (tokens.next()) |token| {
-                if (mem.eql(u8, token, "dt")) {
-                    flags[0] = true;
-                    if (tokens.next()) |dt| {
-                        input.dt = fmt.parseFloat(Real, dt) catch blk: {
-                            try stopWithErrorMsg("Invalid dt value!");
-                            break :blk 0;
-                        };
+            break :blk @Type(TypeInfo{ .Struct = .{
+                .layout = .Auto,
+                .fields = &fields,
+                .decls = &decls,
+                .is_tuple = false,
+            } });
+        };
+
+        pub fn parseInputFile(f: std.fs.File) !InputParserResult {
+            // Initialize input parser result
+            var parsed_entries: InputParserResult = undefined;
+
+            // Initialize input parser flags
+            var entry_found = [_]bool{false} ** entries.len;
+
+            // Go to the start of the file
+            try f.seekTo(0);
+
+            // Get reader
+            const r = f.reader();
+
+            // Line buffer
+            var buf: [config.line_buffer_size]u8 = undefined;
+
+            // Section name
+            var current_section: [config.line_buffer_size]u8 = undefined;
+
+            while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
+                // Skip comments
+                if (mem.startsWith(u8, line, "#")) continue;
+
+                // Check for section
+                if (mem.startsWith(u8, line, "[")) {
+                    const closing_bracket = mem.indexOf(u8, line, "]");
+                    if (closing_bracket) |index| {
+                        mem.set(u8, &current_section, ' ');
+                        mem.copy(u8, &current_section, line[1..index]);
+                        continue;
                     } else {
-                        try stopWithErrorMsg("dt value is absent!");
+                        try stopWithErrorMsg("Missing ']' character in section name");
                     }
-                } else if (mem.eql(u8, token, "density")) {
-                    flags[1] = true;
-                    if (tokens.next()) |density| {
-                        input.density = fmt.parseFloat(Real, density) catch blk: {
-                            try stopWithErrorMsg("Invalid density value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("density value is absent!");
+                }
+
+                // Parse arguments
+                if (mem.eql(u8, config.separator, " ")) {
+                    var tokens = mem.tokenize(u8, line, " ");
+                    if (tokens.next()) |token| {
+                        inline for (entries) |entry, i| {
+                            if (mem.eql(u8, mem.trim(u8, &current_section, " "), entry.section)) {
+                                if (mem.eql(u8, token, entry.name)) {
+                                    entry_found[i] = true;
+                                    if (tokens.next()) |val| {
+                                        switch (@typeInfo(entry.entry_type)) {
+                                            .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val, 10),
+                                            .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val),
+                                            .Pointer => @field(parsed_entries, entry.name) = val,
+                                            .Bool => @field(parsed_entries, entry.name) = blk: {
+                                                if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
+                                                    break :blk true;
+                                                } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
+                                                    break :blk false;
+                                                } else {
+                                                    try stopWithErrorMsg("Bad value for entry " ++ entry.name);
+                                                    unreachable;
+                                                }
+                                            },
+                                            else => unreachable,
+                                        }
+                                    } else {
+                                        try stopWithErrorMsg("Missing value for " ++ entry.name);
+                                    }
+                                }
+                            }
+                        }
                     }
-                } else if (mem.eql(u8, token, "cell")) {
-                    flags[2] = true;
-                    if (tokens.next()) |cell_x| {
-                        input.cell[0] = fmt.parseInt(u64, cell_x, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid cell X value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("cell X value is absent!");
-                    }
-                    if (tokens.next()) |cell_y| {
-                        input.cell[1] = fmt.parseInt(u64, cell_y, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid cell Y value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("cell Y value is absent!");
-                    }
-                    if (tokens.next()) |cell_z| {
-                        input.cell[2] = fmt.parseInt(u64, cell_z, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid cell Z value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("cell Z value is absent!");
-                    }
-                } else if (mem.eql(u8, token, "temperature")) {
-                    flags[3] = true;
-                    if (tokens.next()) |temperature| {
-                        input.temperature = fmt.parseFloat(Real, temperature) catch blk: {
-                            try stopWithErrorMsg("Invalid temperature value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("temperature value is absent!");
-                    }
-                } else if (mem.eql(u8, token, "step_save")) {
-                    flags[4] = true;
-                    if (tokens.next()) |step_save| {
-                        input.step_save = fmt.parseInt(u64, step_save, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid step_save value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("step_save value is absent!");
-                    }
-                } else if (mem.eql(u8, token, "step_total")) {
-                    flags[5] = true;
-                    if (tokens.next()) |step_total| {
-                        input.step_total = fmt.parseInt(u64, step_total, 10) catch blk: {
-                            try stopWithErrorMsg("Invalid step_total value!");
-                            break :blk 0;
-                        };
-                    } else {
-                        try stopWithErrorMsg("step_total value is absent!");
+                } else {
+                    const sep = mem.indexOf(u8, line, config.separator);
+                    if (sep) |idx| {
+                        line[idx] = ' ';
+                        var tokens = mem.tokenize(u8, line, " ");
+                        if (tokens.next()) |token| {
+                            inline for (entries) |entry, i| {
+                                if (mem.eql(u8, mem.trim(u8, &current_section, " "), entry.section)) {
+                                    if (mem.eql(u8, token, entry.name)) {
+                                        entry_found[i] = true;
+                                        if (tokens.next()) |val| {
+                                            switch (@typeInfo(entry.entry_type)) {
+                                                .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val, 10),
+                                                .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val),
+                                                .Pointer => @field(parsed_entries, entry.name) = val,
+                                                .Bool => @field(parsed_entries, entry.name) = blk: {
+                                                    if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
+                                                        break :blk true;
+                                                    } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
+                                                        break :blk false;
+                                                    } else {
+                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name);
+                                                        unreachable;
+                                                    }
+                                                },
+                                                else => unreachable,
+                                            }
+                                        } else {
+                                            try stopWithErrorMsg("Missing value for " ++ entry.name);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
+
+            inline for (entries) |entry, i| {
+                if (!entry_found[i]) {
+                    if (entry.default_value) |default| {
+                        switch (@typeInfo(entry.entry_type)) {
+                            .Int => @field(parsed_entries, entry.name) = default.int,
+                            .Float => @field(parsed_entries, entry.name) = default.float,
+                            .Pointer => @field(parsed_entries, entry.name) = default.string,
+                            .Bool => @field(parsed_entries, entry.name) = default.boolean,
+                            else => unreachable,
+                        }
+                    } else {
+                        try stopWithErrorMsg("Missing value for " ++ entry.name);
+                    }
+                }
+            }
+
+            return parsed_entries;
         }
 
-        for (flags) |flag, i| {
-            if (!flag and i == 0) try stopWithErrorMsg("missing dt in input file!");
-            if (!flag and i == 1) try stopWithErrorMsg("missing density in input file!");
-            if (!flag and i == 2) try stopWithErrorMsg("missing temperature in input file!");
-            if (!flag and i == 3) try stopWithErrorMsg("missing cell in input file!");
-            if (!flag and i == 4) try stopWithErrorMsg("missing step_save in input file!");
-            if (!flag and i == 5) try stopWithErrorMsg("missing step_total in input file!");
+        pub fn parse(input_file_name: []const u8) !InputParserResult {
+            var f = try std.fs.cwd().openFile(input_file_name, .{ .read = true });
+            return try parseInputFile(f);
         }
+    };
+}
 
-        return input;
-    }
-
-    pub fn displayValues(self: Self) !void {
-        // Get stdout
-        const stdout = std.io.getStdOut().writer();
-
-        // Print header
-        try stdout.writeAll(bold ++ yellow ++ "> INPUT:\n" ++ reset);
-        try stdout.print(bold ++ blue ++ "    dt:           " ++ reset ++ "{d:<5.3}\n", .{self.dt});
-        try stdout.print(bold ++ blue ++ "    density:      " ++ reset ++ "{d:<5.3}\n", .{self.density});
-        try stdout.print(bold ++ blue ++ "    temperature:  " ++ reset ++ "{d:<6.2}\n", .{self.temperature});
-        try stdout.print(bold ++ blue ++ "    cell:         " ++ reset ++ "{d:<7} {d:<7} {d:<7}\n", .{ self.cell[0], self.cell[1], self.cell[2] });
-        try stdout.print(bold ++ blue ++ "    step_save:    " ++ reset ++ "{d:<10}\n", .{self.step_save});
-        try stdout.print(bold ++ blue ++ "    step_total:   " ++ reset ++ "{d:<10}\n", .{self.step_total});
-    }
-};
+pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry{
+    .{
+        .name = "dt",
+        .entry_type = Real,
+        .section = "Dynamics",
+    },
+    .{
+        .name = "steps",
+        .entry_type = u64,
+        .section = "Dynamics",
+    },
+    .{
+        .name = "out_freq_info",
+        .entry_type = u64,
+        .section = "Output",
+    },
+});
