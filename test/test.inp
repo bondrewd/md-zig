@@ -10,6 +10,7 @@ integrator    = LEAP       # [LEAP,VVER]
 n_steps       = 100        # number of MD steps
 time_step     = 0.001      # timestep (ps)
 ensemble      = NVE        # [NVE]
+rng_seed      = 0          # If zero it is automatically generated
  
 [CONSTRAINTS]
 rigid_bond    = NO         # constraints all bonds involving hydrogen

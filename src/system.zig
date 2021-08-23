@@ -1,5 +1,6 @@
 const std = @import("std");
 const vec = @import("vec.zig");
+const Vec = @import("vec.zig").Vec;
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
 const integratorFromString = @import("integrator.zig").integratorFromString;
@@ -8,7 +9,8 @@ pub const System = struct {
     allocator: *std.mem.Allocator = undefined,
     integrator: fn (*Self) void = undefined,
     time_step: Real = undefined,
-    region: vec.Vec = vec.Vec{},
+    random: Random = undefined,
+    region: Vec = Vec{},
     atoms: []Atom = undefined,
     properties: SystemProperties = SystemProperties{},
 
@@ -23,12 +25,18 @@ pub const System = struct {
         temperature: Real = 0,
     };
 
+    const Random = struct {
+        seed: u64,
+        rng: std.rand.DefaultPrng,
+    };
+
     const Self = @This();
 
     pub const SystemConfiguration = struct {
         allocator: *std.mem.Allocator,
         integrator: []const u8,
         time_step: Real,
+        rng_seed: u64,
     };
 
     pub fn init(config: SystemConfiguration) !Self {
@@ -43,6 +51,17 @@ pub const System = struct {
         // Set time step
         system.time_step = config.time_step;
 
+        // Set rng
+        const rng_seed = if (config.rng_seed > 0) config.rng_seed else blk: {
+            var seed: u64 = undefined;
+            try std.os.getrandom(std.mem.asBytes(&seed));
+            break :blk seed;
+        };
+        system.random = Random{
+            .seed = rng_seed,
+            .rng = std.rand.DefaultPrng.init(rng_seed),
+        };
+
         return system;
     }
 
@@ -51,27 +70,26 @@ pub const System = struct {
     }
 
     pub fn initVelocities(self: *Self, temperature: Real) !void {
-        // Initialize random number generator
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = &prng.random;
+        // Get rng
+        const rand = &self.random.rng.random;
 
         // Initialize local variables
-        var v_sum = vec.Vec{};
+        var v_sum = Vec{};
         const n_atoms = @intToFloat(Real, self.atoms.len);
-        const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * temperature);
+        const vel = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * temperature);
 
         // Initialize with random velocities
         for (self.atoms) |*atom| {
             // Create a random unit vector
-            var v_random = vec.Vec{ .x = rand.float(Real), .y = rand.float(Real), .z = rand.float(Real) };
+            var v_random = Vec{
+                .x = rand.float(Real),
+                .y = rand.float(Real),
+                .z = rand.float(Real),
+            };
             v_random = vec.normalize(v_random);
 
             // Assign random velocity
-            atom.v = vec.scale(v_random, velocity);
+            atom.v = vec.scale(v_random, vel);
             v_sum = vec.add(v_sum, atom.v);
         }
 

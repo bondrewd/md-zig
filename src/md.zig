@@ -29,6 +29,7 @@ pub fn main() anyerror!void {
         .allocator = allocator,
         .integrator = input.integrator,
         .time_step = input.time_step,
+        .rng_seed = input.rng_seed,
     });
 
     std.debug.print("{?}\n", .{system});

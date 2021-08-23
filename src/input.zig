@@ -251,6 +251,11 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
         .section = "DYNAMICS",
     },
     .{
+        .name = "rng_seed",
+        .entry_type = u64,
+        .section = "DYNAMICS",
+    },
+    .{
         .name = "rigid_bond",
         .entry_type = bool,
         .section = "CONSTRAINTS",
