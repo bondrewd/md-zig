@@ -63,7 +63,14 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
             var parsed_entries: InputParserResult = undefined;
             inline for (entries) |entry| {
                 @field(parsed_entries, entry.name) = switch (entry.takes) {
-                    .One => undefined,
+                    .One => switch (@typeInfo(entry.entry_type)) {
+                        .Pointer => blk: {
+                            var buf = try allocator.alloc(u8, config.line_buffer_size);
+                            mem.set(u8, buf, ' ');
+                            break :blk buf;
+                        },
+                        else => undefined,
+                    },
                     .Many => ArrayList(entry.entry_type).init(allocator),
                 };
             }
@@ -99,119 +106,69 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                     }
                 }
 
-                // Parse arguments
-                if (mem.eql(u8, config.separator, " ")) {
-                    var tokens = mem.tokenize(u8, line, " ");
-                    if (tokens.next()) |token| {
-                        inline for (entries) |entry, i| {
-                            if (mem.eql(u8, mem.trim(u8, &current_section, " "), entry.section)) {
-                                if (mem.eql(u8, token, entry.name)) {
-                                    entry_found[i] = true;
-                                    switch (entry.takes) {
-                                        .One => {
-                                            if (tokens.next()) |val| {
-                                                switch (@typeInfo(entry.entry_type)) {
-                                                    .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val, 10),
-                                                    .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val),
-                                                    .Pointer => @field(parsed_entries, entry.name) = val,
-                                                    .Bool => @field(parsed_entries, entry.name) = blk: {
-                                                        if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
-                                                            break :blk true;
-                                                        } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
-                                                            break :blk false;
-                                                        } else {
-                                                            try stopWithErrorMsg("Bad value for entry " ++ entry.name);
-                                                            unreachable;
-                                                        }
-                                                    },
-                                                    else => unreachable,
-                                                }
-                                            } else {
-                                                try stopWithErrorMsg("Missing value for " ++ entry.name);
-                                            }
-                                        },
-                                        .Many => {
-                                            while (tokens.next()) |val| {
-                                                if (mem.startsWith(u8, val, config.comment_character)) continue :line_loop;
-                                                switch (@typeInfo(entry.entry_type)) {
-                                                    .Int => try @field(parsed_entries, entry.name).append(try fmt.parseInt(entry.entry_type, val, 10)),
-                                                    .Float => try @field(parsed_entries, entry.name).append(try fmt.parseFloat(entry.entry_type, val)),
-                                                    .Pointer => try @field(parsed_entries, entry.name).append(val),
-                                                    .Bool => try @field(parsed_entries, entry.name).append(blk: {
-                                                        if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
-                                                            break :blk true;
-                                                        } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
-                                                            break :blk false;
-                                                        } else {
-                                                            try stopWithErrorMsg("Bad value for entry " ++ entry.name);
-                                                            unreachable;
-                                                        }
-                                                    }),
-                                                    else => unreachable,
-                                                }
-                                            }
-                                        },
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    const sep = mem.indexOf(u8, line, config.separator);
-                    if (sep) |idx| {
+                // Replace separator
+                if (!mem.eql(u8, config.separator, " ")) {
+                    const sep_idx = mem.indexOf(u8, line, config.separator);
+                    if (sep_idx) |idx| {
                         line[idx] = ' ';
-                        var tokens = mem.tokenize(u8, line, " ");
-                        if (tokens.next()) |token| {
-                            inline for (entries) |entry, i| {
-                                if (mem.eql(u8, mem.trim(u8, &current_section, " "), entry.section)) {
-                                    if (mem.eql(u8, token, entry.name)) {
-                                        entry_found[i] = true;
-                                        switch (entry.takes) {
-                                            .One => {
-                                                if (tokens.next()) |val| {
-                                                    switch (@typeInfo(entry.entry_type)) {
-                                                        .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val, 10),
-                                                        .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val),
-                                                        .Pointer => @field(parsed_entries, entry.name) = val,
-                                                        .Bool => @field(parsed_entries, entry.name) = blk: {
-                                                            if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
-                                                                break :blk true;
-                                                            } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
-                                                                break :blk false;
-                                                            } else {
-                                                                try stopWithErrorMsg("Bad value for entry " ++ entry.name);
-                                                                unreachable;
-                                                            }
-                                                        },
-                                                        else => unreachable,
+                    } else if (mem.trim(u8, line, " ").len == 0) {
+                        continue;
+                    } else {
+                        try stopWithErrorMsg("Missing separator " ++ config.separator);
+                    }
+                }
+
+                // Parse arguments
+                var tokens = mem.tokenize(u8, line, " ");
+                if (tokens.next()) |token| {
+                    inline for (entries) |entry, i| {
+                        if (mem.eql(u8, mem.trim(u8, &current_section, " "), entry.section)) {
+                            if (mem.eql(u8, token, entry.name)) {
+                                entry_found[i] = true;
+                                switch (entry.takes) {
+                                    .One => {
+                                        if (tokens.next()) |val| {
+                                            switch (@typeInfo(entry.entry_type)) {
+                                                .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val, 10),
+                                                .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val),
+                                                .Pointer => mem.copy(u8, @field(parsed_entries, entry.name), mem.trim(u8, val, " ")),
+                                                .Bool => @field(parsed_entries, entry.name) = blk: {
+                                                    if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
+                                                        break :blk true;
+                                                    } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
+                                                        break :blk false;
+                                                    } else {
+                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name);
+                                                        unreachable;
                                                     }
-                                                } else {
-                                                    try stopWithErrorMsg("Missing value for " ++ entry.name);
-                                                }
-                                            },
-                                            .Many => {
-                                                while (tokens.next()) |val| {
-                                                    if (mem.startsWith(u8, val, config.comment_character)) continue :line_loop;
-                                                    switch (@typeInfo(entry.entry_type)) {
-                                                        .Int => try @field(parsed_entries, entry.name).append(try fmt.parseInt(entry.entry_type, val, 10)),
-                                                        .Float => try @field(parsed_entries, entry.name).append(try fmt.parseFloat(entry.entry_type, val)),
-                                                        .Pointer => try @field(parsed_entries, entry.name).append(val),
-                                                        .Bool => try @field(parsed_entries, entry.name).append(blk: {
-                                                            if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
-                                                                break :blk true;
-                                                            } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
-                                                                break :blk false;
-                                                            } else {
-                                                                try stopWithErrorMsg("Bad value for entry " ++ entry.name);
-                                                                unreachable;
-                                                            }
-                                                        }),
-                                                        else => unreachable,
-                                                    }
-                                                }
-                                            },
+                                                },
+                                                else => unreachable,
+                                            }
+                                        } else {
+                                            try stopWithErrorMsg("Missing value for " ++ entry.name);
                                         }
-                                    }
+                                    },
+                                    .Many => {
+                                        while (tokens.next()) |val| {
+                                            if (mem.startsWith(u8, val, config.comment_character)) continue :line_loop;
+                                            switch (@typeInfo(entry.entry_type)) {
+                                                .Int => try @field(parsed_entries, entry.name).append(try fmt.parseInt(entry.entry_type, val, 10)),
+                                                .Float => try @field(parsed_entries, entry.name).append(try fmt.parseFloat(entry.entry_type, val)),
+                                                .Pointer => try @field(parsed_entries, entry.name).append(val),
+                                                .Bool => try @field(parsed_entries, entry.name).append(blk: {
+                                                    if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
+                                                        break :blk true;
+                                                    } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
+                                                        break :blk false;
+                                                    } else {
+                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name);
+                                                        unreachable;
+                                                    }
+                                                }),
+                                                else => unreachable,
+                                            }
+                                        }
+                                    },
                                 }
                             }
                         }
@@ -243,11 +200,14 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
             return try parseInputFile(allocator, f);
         }
 
-        pub fn deinit(parsed_entries: InputParserResult) void {
+        pub fn deinit(allocator: *Allocator, parsed_entries: InputParserResult) void {
             inline for (entries) |entry| {
                 switch (entry.takes) {
+                    .One => switch (@typeInfo(entry.entry_type)) {
+                        .Pointer => allocator.free(@field(parsed_entries, entry.name)),
+                        else => {},
+                    },
                     .Many => @field(parsed_entries, entry.name).deinit(),
-                    else => {},
                 }
             }
         }
@@ -257,22 +217,22 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
 pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry{
     .{
         .name = "pdbfile",
-        .entry_type = []const u8,
+        .entry_type = []u8,
         .section = "INPUT",
     },
     .{
         .name = "psffile",
-        .entry_type = []const u8,
+        .entry_type = []u8,
         .section = "INPUT",
     },
     .{
         .name = "forcefield",
-        .entry_type = []const u8,
+        .entry_type = []u8,
         .section = "ENERGY",
     },
     .{
         .name = "integrator",
-        .entry_type = []const u8,
+        .entry_type = []u8,
         .section = "DYNAMICS",
     },
     .{
@@ -287,7 +247,7 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
     },
     .{
         .name = "ensemble",
-        .entry_type = []const u8,
+        .entry_type = []u8,
         .section = "DYNAMICS",
     },
     .{
@@ -297,7 +257,7 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
     },
     .{
         .name = "boundary_type",
-        .entry_type = []const u8,
+        .entry_type = []u8,
         .section = "BOUNDARY",
     },
     .{

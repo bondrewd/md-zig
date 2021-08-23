@@ -3,7 +3,6 @@ const std = @import("std");
 //const Input = @import("input.zig").Input;
 const System = @import("system.zig").System;
 const Reporter = @import("reporter.zig").Reporter;
-const Integrator = @import("integrator.zig").Integrator;
 const ProgressBar = @import("progress_bar.zig").ProgressBar;
 const MdInputParser = @import("input.zig").MdInputParser;
 
@@ -24,21 +23,15 @@ pub fn main() anyerror!void {
     defer ArgParser.deinitArgs(args);
 
     const input = try MdInputParser.parse(allocator, args.input);
-    defer MdInputParser.deinit(input);
-    std.debug.print("{?}\n", .{input});
-    //const input = try Input.init(args.input);
-    //try input.displayValues();
+    defer MdInputParser.deinit(allocator, input);
 
-    //var system = try System.init(allocator, .{
-    //.dt = input.dt,
-    //.cell = input.cell,
-    //.density = input.density,
-    //.temperature = input.temperature,
-    //});
-    //defer system.deinit();
-    //try system.displayInfo();
+    var system = try System.init(.{
+        .allocator = allocator,
+        .integrator = input.integrator,
+        .time_step = input.time_step,
+    });
 
-    //const integrator = Integrator(.LeapFrog).init(&system);
+    std.debug.print("{?}\n", .{system});
 
     //const of = try std.fs.cwd().createFile(args.output, .{});
     //const ow = of.writer();
