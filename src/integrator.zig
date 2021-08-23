@@ -5,7 +5,7 @@ pub const IntegratorType = enum {
     LeapFrog,
 };
 
-pub fn Integrator(comptime integrator: IntegratorType) type {
+pub fn Integrator(integrator: IntegratorType) type {
     return struct {
         system: *System,
 

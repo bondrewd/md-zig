@@ -1,6 +1,21 @@
-[ Dynamics ]
-dt            = 0.005
-steps         = 1000  
-
-[ Output ]
-out_freq_info = 10
+[INPUT]
+psffile       = input.psf  # protein structure file
+pdbfile       = input.pdb  # PDB file
+ 
+[ENERGY]
+forcefield    = LJ         # [LJ]
+ 
+[DYNAMICS]
+integrator    = LEAP       # [LEAP,VVER]
+n_steps       = 100        # number of MD steps
+time_step     = 0.001      # timestep (ps)
+ensemble      = NVE        # [NVE]
+ 
+[CONSTRAINTS]
+rigid_bond    = NO         # constraints all bonds involving hydrogen
+ 
+[BOUNDARY]
+boundary_type = PBC        # [NOBC,PBC]
+region_size_x = 10.0       # region size (x) in [PBC]
+region_size_y = 10.0       # region size (x) in [PBC]
+region_size_z = 10.0       # region size (x) in [PBC]

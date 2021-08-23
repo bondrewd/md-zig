@@ -23,7 +23,8 @@ pub fn main() anyerror!void {
     const args = try ArgParser.parse(allocator);
     defer ArgParser.deinitArgs(args);
 
-    const input = try MdInputParser.parse(args.input);
+    const input = try MdInputParser.parse(allocator, args.input);
+    defer MdInputParser.deinit(input);
     std.debug.print("{?}\n", .{input});
     //const input = try Input.init(args.input);
     //try input.displayValues();

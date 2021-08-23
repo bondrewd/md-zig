@@ -8,9 +8,9 @@ pub const System = struct {
     region: vec.Vec = undefined,
     cell: [3]u64 = undefined,
     energy: Energy = undefined,
-    atoms: std.ArrayList(Atom) = undefined,
-    target_temperature: Real = undefined,
+    atoms: []Atom = undefined,
     temperature: Real = undefined,
+    allocator: *std.mem.Allocator,
 
     const Energy = struct {
         kinetic: Real = 0,
@@ -30,8 +30,10 @@ pub const System = struct {
     pub fn init(allocator: *std.mem.Allocator, config: Configuration) !Self {
         var system = System{};
 
+        system.allocator = allocator;
+        system.atoms = try allocator.alloc(Atom, 100);
+
         system.dt = config.dt;
-        system.target_temperature = config.temperature;
         system.cell[0] = config.cell[0];
         system.cell[1] = config.cell[1];
         system.cell[2] = config.cell[2];
@@ -50,15 +52,7 @@ pub const System = struct {
     }
 
     pub fn deinit(self: Self) void {
-        self.atoms.deinit();
-    }
-
-    pub fn addAtoms(self: *Self) !void {
-        var i: usize = 0;
-        const n_atoms = self.cell[0] * self.cell[1] * self.cell[2];
-        while (i < n_atoms) : (i += 1) {
-            try self.atoms.append(Atom{});
-        }
+        self.allocator.free(self.atoms);
     }
 
     pub fn initPositions(self: *Self) void {
@@ -79,7 +73,7 @@ pub const System = struct {
                 while (ix < cell[0]) : (ix += 1) {
                     const iatom = ix + iy * cell[0] + iz * cell[0] * cell[1];
 
-                    self.atoms.items[iatom].r = vec.Vec{
+                    self.atoms[iatom].r = vec.Vec{
                         .x = -0.5 * region.x + (@intToFloat(Real, ix) + 0.5) * delta.x,
                         .y = -0.5 * region.y + (@intToFloat(Real, iy) + 0.5) * delta.y,
                         .z = -0.5 * region.z + (@intToFloat(Real, iz) + 0.5) * delta.z,
@@ -89,7 +83,7 @@ pub const System = struct {
         }
     }
 
-    pub fn initVelocities(self: *Self) !void {
+    pub fn initVelocities(self: *Self, temperature: Real) !void {
         // Initialize random number generator
         var prng = std.rand.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
@@ -100,11 +94,11 @@ pub const System = struct {
 
         // Initialize local variables
         var v_sum = vec.Vec{};
-        const n_atoms = @intToFloat(Real, self.atoms.items.len);
-        const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * self.target_temperature);
+        const n_atoms = @intToFloat(Real, self.atoms.len);
+        const velocity = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * temperature);
 
         // Initialize with random velocities
-        for (self.atoms.items) |*atom| {
+        for (self.atoms) |*atom| {
             // Create a random unit vector
             var v_random = vec.Vec{ .x = rand.float(Real), .y = rand.float(Real), .z = rand.float(Real) };
             v_random = vec.normalize(v_random);
@@ -118,27 +112,23 @@ pub const System = struct {
         const v_avg = vec.scale(v_sum, 1.0 / n_atoms);
 
         // Remove system velocity
-        for (self.atoms.items) |*atom| {
+        for (self.atoms) |*atom| {
             atom.v = vec.sub(atom.v, v_avg);
         }
     }
 
     pub fn initForces(self: *Self) void {
-        for (self.atoms.items) |*atom| {
+        for (self.atoms) |*atom| {
             atom.f = vec.Vec{};
         }
     }
 
-    pub fn initAtoms(self: *Self, allocator: *std.mem.Allocator) !void {
-        // Allocate atoms
-        self.atoms = std.ArrayList(Atom).init(allocator);
-        try self.addAtoms();
-
+    pub fn initAtoms(self: *Self, temperature: Real) !void {
         // Init positions
         self.initPositions();
 
         // Init velocities
-        try self.initVelocities();
+        try self.initVelocities(temperature);
 
         // Init forcer
         self.initForces();
@@ -146,11 +136,11 @@ pub const System = struct {
 
     pub fn updateKineticEnergy(self: *Self) void {
         var kinetic: Real = 0.0;
-        for (self.atoms.items) |atom| {
+        for (self.atoms) |atom| {
             kinetic += vec.dot(atom.v, atom.v);
         }
 
-        self.temperature = kinetic / (3.0 * (@intToFloat(Real, self.atoms.items.len) - 1.0));
+        self.temperature = kinetic / (3.0 * (@intToFloat(Real, self.atoms.len) - 1.0));
         self.energy.kinetic = 0.5 * kinetic;
     }
 
@@ -159,12 +149,12 @@ pub const System = struct {
         var potential: Real = 0.0;
 
         var i: usize = 0;
-        while (i < self.atoms.items.len) : (i += 1) {
-            const iatom = self.atoms.items[i];
+        while (i < self.atoms.len) : (i += 1) {
+            const iatom = self.atoms[i];
 
             var j: usize = i + 1;
-            while (j < self.atoms.items.len) : (j += 1) {
-                const jatom = self.atoms.items[j];
+            while (j < self.atoms.len) : (j += 1) {
+                const jatom = self.atoms[j];
 
                 var rij: vec.Vec = undefined;
                 rij = vec.sub(iatom.r, jatom.r);
@@ -191,19 +181,19 @@ pub const System = struct {
     pub fn calculateForces(self: *Self) void {
         const rr_cut = std.math.pow(Real, 2.0, 1.0 / 3.0);
 
-        for (self.atoms.items) |*atom| {
+        for (self.atoms) |*atom| {
             atom.f.x = 0.0;
             atom.f.y = 0.0;
             atom.f.z = 0.0;
         }
 
         var i: usize = 0;
-        while (i < self.atoms.items.len) : (i += 1) {
-            const iatom = self.atoms.items[i];
+        while (i < self.atoms.len) : (i += 1) {
+            const iatom = self.atoms[i];
 
             var j: usize = i + 1;
-            while (j < self.atoms.items.len) : (j += 1) {
-                const jatom = self.atoms.items[j];
+            while (j < self.atoms.len) : (j += 1) {
+                const jatom = self.atoms[j];
 
                 var rij: vec.Vec = undefined;
                 rij = vec.sub(iatom.r, jatom.r);
@@ -216,8 +206,8 @@ pub const System = struct {
                     const f = 48.0 * rri3 * (rri3 - 0.5) * rri;
                     const force = vec.scale(rij, f);
 
-                    self.atoms.items[i].f = vec.add(self.atoms.items[i].f, force);
-                    self.atoms.items[j].f = vec.sub(self.atoms.items[j].f, force);
+                    self.atoms[i].f = vec.add(self.atoms[i].f, force);
+                    self.atoms[j].f = vec.sub(self.atoms[j].f, force);
                 }
             }
         }
