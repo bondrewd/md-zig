@@ -15,6 +15,7 @@ pub const InputParserConfiguration = struct {
     separator: []const u8 = " ",
     section_opening: []const u8 = "[",
     section_closing: []const u8 = "]",
+    comment_character: []const u8 = "#",
 };
 
 pub const InputParserEntry = struct {
@@ -84,7 +85,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
 
             line_loop: while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
                 // Skip comments
-                if (mem.startsWith(u8, line, "#")) continue;
+                if (mem.startsWith(u8, line, config.comment_character)) continue;
 
                 // Check for section
                 if (mem.startsWith(u8, line, config.section_opening)) {
@@ -131,7 +132,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                                         },
                                         .Many => {
                                             while (tokens.next()) |val| {
-                                                if (mem.startsWith(u8, val, "#")) continue :line_loop;
+                                                if (mem.startsWith(u8, val, config.comment_character)) continue :line_loop;
                                                 switch (@typeInfo(entry.entry_type)) {
                                                     .Int => try @field(parsed_entries, entry.name).append(try fmt.parseInt(entry.entry_type, val, 10)),
                                                     .Float => try @field(parsed_entries, entry.name).append(try fmt.parseFloat(entry.entry_type, val)),
@@ -190,7 +191,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                                             },
                                             .Many => {
                                                 while (tokens.next()) |val| {
-                                                    if (mem.startsWith(u8, val, "#")) continue :line_loop;
+                                                    if (mem.startsWith(u8, val, config.comment_character)) continue :line_loop;
                                                     switch (@typeInfo(entry.entry_type)) {
                                                         .Int => try @field(parsed_entries, entry.name).append(try fmt.parseInt(entry.entry_type, val, 10)),
                                                         .Float => try @field(parsed_entries, entry.name).append(try fmt.parseFloat(entry.entry_type, val)),
