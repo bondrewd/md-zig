@@ -5,5 +5,6 @@ pub const Atom = struct {
     r: Vec = .{},
     v: Vec = .{},
     f: Vec = .{},
-    m: Real = 1,
+    m: Real = undefined,
+    id: u64 = undefined,
 };

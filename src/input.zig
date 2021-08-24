@@ -232,11 +232,6 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
         .section = "INPUT",
     },
     .{
-        .name = "force_field",
-        .entry_type = []u8,
-        .section = "ENERGY",
-    },
-    .{
         .name = "integrator",
         .entry_type = []u8,
         .section = "DYNAMICS",
@@ -260,11 +255,6 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
         .name = "rng_seed",
         .entry_type = u64,
         .section = "DYNAMICS",
-    },
-    .{
-        .name = "rigid_bond",
-        .entry_type = bool,
-        .section = "CONSTRAINTS",
     },
     .{
         .name = "boundary_type",

@@ -70,7 +70,7 @@ pub const System = struct {
         self.allocator.free(self.atoms);
     }
 
-    pub fn initPossitionsFromPosFile(self: *Self, file_name: []const u8) !void {
+    pub fn initPositionsFromPosFile(self: *Self, file_name: []const u8) !void {
         const pos_file = try PosFile(.{}).init(self.allocator, file_name);
         defer pos_file.deinit();
 
@@ -79,6 +79,7 @@ pub const System = struct {
             atom.r.x = pos_file.pos[i].x;
             atom.r.y = pos_file.pos[i].y;
             atom.r.z = pos_file.pos[i].z;
+            atom.id = pos_file.id[i];
         }
     }
 

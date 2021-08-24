@@ -27,7 +27,7 @@ pub fn main() anyerror!void {
         .rng_seed = input.rng_seed,
     });
 
-    try system.initPossitionsFromPosFile(std.mem.trim(u8, input.pos_file, " "));
+    try system.initPositionsFromPosFile(std.mem.trim(u8, input.pos_file, " "));
     std.debug.print("pos: {?}\n", .{system.atoms});
 
     //const of = try std.fs.cwd().createFile(args.output, .{});
@@ -63,7 +63,7 @@ const ArgParser = ArgumentParser(.{
         .long = "--input",
         .short = "-i",
         .description = "Input file name (Required)",
-        .metavar = "<FILE> [FILE...]",
+        .metavar = "<FILE>",
         .argument_type = []const u8,
         .takes = .One,
         .required = true,
@@ -73,7 +73,7 @@ const ArgParser = ArgumentParser(.{
         .long = "--output",
         .short = "-o",
         .description = "Output file name (Defult: out.md)",
-        .metavar = "<FILE> [FILE...]",
+        .metavar = "<FILE>",
         .argument_type = []const u8,
         .takes = .One,
         .default_value = .{ .string = "out.md" },
