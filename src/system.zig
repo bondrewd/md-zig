@@ -3,6 +3,7 @@ const vec = @import("vec.zig");
 const Vec = @import("vec.zig").Vec;
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
+const PosFile = @import("file.zig").PosFile;
 const integratorFromString = @import("integrator.zig").integratorFromString;
 
 pub const System = struct {
@@ -67,6 +68,18 @@ pub const System = struct {
 
     pub fn deinit(self: Self) void {
         self.allocator.free(self.atoms);
+    }
+
+    pub fn initPossitionsFromPosFile(self: *Self, file_name: []const u8) !void {
+        const pos_file = try PosFile(.{}).init(self.allocator, file_name);
+        defer pos_file.deinit();
+
+        self.atoms = try self.allocator.alloc(Atom, pos_file.len);
+        for (self.atoms) |*atom, i| {
+            atom.r.x = pos_file.pos[i].x;
+            atom.r.y = pos_file.pos[i].y;
+            atom.r.z = pos_file.pos[i].z;
+        }
     }
 
     pub fn initVelocities(self: *Self, temperature: Real) !void {

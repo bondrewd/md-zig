@@ -1,6 +1,5 @@
 const std = @import("std");
 
-//const Input = @import("input.zig").Input;
 const System = @import("system.zig").System;
 const Reporter = @import("reporter.zig").Reporter;
 const ProgressBar = @import("progress_bar.zig").ProgressBar;
@@ -9,10 +8,6 @@ const MdInputParser = @import("input.zig").MdInputParser;
 const argparse = @import("argparse-zig/src/argparse.zig");
 const ArgumentParser = argparse.ArgumentParser;
 const ArgumentParserOption = argparse.ArgumentParserOption;
-
-const bold = @import("config.zig").bold;
-const reset = @import("config.zig").reset;
-const yellow = @import("config.zig").yellow;
 
 pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -32,7 +27,8 @@ pub fn main() anyerror!void {
         .rng_seed = input.rng_seed,
     });
 
-    std.debug.print("{?}\n", .{system});
+    try system.initPossitionsFromPosFile(std.mem.trim(u8, input.pos_file, " "));
+    std.debug.print("pos: {?}\n", .{system.atoms});
 
     //const of = try std.fs.cwd().createFile(args.output, .{});
     //const ow = of.writer();
@@ -42,8 +38,6 @@ pub fn main() anyerror!void {
 
     //const stdout = std.io.getStdOut().writer();
     //const progress_bar = ProgressBar.init(stdout, .{});
-
-    //try stdout.writeAll(bold ++ yellow ++ "> PROGRESS:\n" ++ reset);
 
     //var istep: usize = 1;
     //while (istep <= input.step_total) : (istep += 1) {

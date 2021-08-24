@@ -1,9 +1,10 @@
 [INPUT]
-psffile       = input.psf  # protein structure file
-pdbfile       = input.pdb  # PDB file
+mol_file      = ./test/input.mol  # Molecule file
+grp_file      = ./test/input.grp  # Group file
+pos_file      = ./test/input.pos  # Position file
  
 [ENERGY]
-forcefield    = LJ         # [LJ]
+force_field   = LJ         # [LJ]
  
 [DYNAMICS]
 integrator    = LEAP       # [LEAP,VVER]

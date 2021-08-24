@@ -26,12 +26,12 @@ pub fn leapFrog(system: *System) void {
     }
 }
 
-pub fn integratorFromString(integrator: []const u8) !fn (*System) void {
-    if (std.mem.eql(u8, "LEAP", std.mem.trim(u8, integrator, " "))) {
+pub fn integratorFromString(integrator_str: []const u8) !fn (*System) void {
+    const integrator = std.mem.trim(u8, integrator_str, " ");
+    if (std.mem.eql(u8, "LEAP", integrator)) {
         return leapFrog;
     } else {
-        std.debug.print("integrator: {s}\n", .{integrator});
-        try stopWithErrorMsg("Unknown integrator");
+        try stopWithErrorMsg("Unknown integrator -> {s}", .{integrator});
         unreachable;
     }
 }

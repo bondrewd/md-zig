@@ -94,6 +94,9 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                 // Skip comments
                 if (mem.startsWith(u8, line, config.comment_character)) continue;
 
+                // Skip empty lines
+                if (mem.trim(u8, line, " ").len == 0) continue;
+
                 // Check for section
                 if (mem.startsWith(u8, line, config.section_opening)) {
                     const closing_symbol = mem.indexOf(u8, line, config.section_closing);
@@ -102,7 +105,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                         mem.copy(u8, &current_section, line[1..index]);
                         continue;
                     } else {
-                        try stopWithErrorMsg("Missing ']' character in section name");
+                        try stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
                     }
                 }
 
@@ -111,10 +114,8 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                     const sep_idx = mem.indexOf(u8, line, config.separator);
                     if (sep_idx) |idx| {
                         line[idx] = ' ';
-                    } else if (mem.trim(u8, line, " ").len == 0) {
-                        continue;
                     } else {
-                        try stopWithErrorMsg("Missing separator " ++ config.separator);
+                        try stopWithErrorMsg("Missing separator " ++ config.separator ++ " -> {s}", .{line});
                     }
                 }
 
@@ -138,14 +139,14 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                                                     } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
                                                         break :blk false;
                                                     } else {
-                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name);
+                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val});
                                                         unreachable;
                                                     }
                                                 },
                                                 else => unreachable,
                                             }
                                         } else {
-                                            try stopWithErrorMsg("Missing value for " ++ entry.name);
+                                            try stopWithErrorMsg("Missing value for " ++ entry.name, .{});
                                         }
                                     },
                                     .Many => {
@@ -161,7 +162,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                                                     } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
                                                         break :blk false;
                                                     } else {
-                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name);
+                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val});
                                                         unreachable;
                                                     }
                                                 }),
@@ -187,7 +188,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                             else => unreachable,
                         }
                     } else {
-                        try stopWithErrorMsg("Missing value for " ++ entry.name);
+                        try stopWithErrorMsg("Missing value for " ++ entry.name, .{});
                     }
                 }
             }
@@ -216,17 +217,22 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
 
 pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry{
     .{
-        .name = "pdbfile",
+        .name = "mol_file",
         .entry_type = []u8,
         .section = "INPUT",
     },
     .{
-        .name = "psffile",
+        .name = "grp_file",
         .entry_type = []u8,
         .section = "INPUT",
     },
     .{
-        .name = "forcefield",
+        .name = "pos_file",
+        .entry_type = []u8,
+        .section = "INPUT",
+    },
+    .{
+        .name = "force_field",
         .entry_type = []u8,
         .section = "ENERGY",
     },
