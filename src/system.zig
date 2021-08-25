@@ -6,6 +6,8 @@ const Real = @import("config.zig").Real;
 const PosFile = @import("file.zig").PosFile;
 const integratorFromString = @import("integrator.zig").integratorFromString;
 
+const kb = @import("constant.zig").kb;
+
 pub const System = struct {
     allocator: *std.mem.Allocator = undefined,
     integrator: fn (*Self) void = undefined,
@@ -83,36 +85,32 @@ pub const System = struct {
         }
     }
 
-    pub fn initVelocities(self: *Self, temperature: Real) !void {
+    pub fn initVelocities(self: *Self, temperature: Real) void {
         // Get rng
         const rand = &self.random.rng.random;
 
-        // Initialize local variables
-        var v_sum = Vec{};
-        const n_atoms = @intToFloat(Real, self.atoms.len);
-        const vel = std.math.sqrt(3.0 * (1.0 - 1.0 / n_atoms) * temperature);
-
         // Initialize with random velocities
         for (self.atoms) |*atom| {
-            // Create a random unit vector
-            var v_random = Vec{
-                .x = rand.float(Real),
-                .y = rand.float(Real),
-                .z = rand.float(Real),
+            // Sigma
+            // TODO: Mass is currently hard-coded
+            const s = std.math.sqrt(kb * temperature / 39.948);
+
+            // Alpha
+            const a = Vec{
+                .x = std.math.sqrt(-2.0 * std.math.ln(rand.float(Real))),
+                .y = std.math.sqrt(-2.0 * std.math.ln(rand.float(Real))),
+                .z = std.math.sqrt(-2.0 * std.math.ln(rand.float(Real))),
             };
-            v_random = vec.normalize(v_random);
+
+            // Beta
+            const b = Vec{
+                .x = @cos(2.0 * std.math.pi * rand.float(Real)),
+                .y = @cos(2.0 * std.math.pi * rand.float(Real)),
+                .z = @cos(2.0 * std.math.pi * rand.float(Real)),
+            };
 
             // Assign random velocity
-            atom.v = vec.scale(v_random, vel);
-            v_sum = vec.add(v_sum, atom.v);
-        }
-
-        // Calculate system velocity
-        const v_avg = vec.scale(v_sum, 1.0 / n_atoms);
-
-        // Remove system velocity
-        for (self.atoms) |*atom| {
-            atom.v = vec.sub(atom.v, v_avg);
+            atom.v = vec.scale(vec.mul(a, b), s);
         }
     }
 

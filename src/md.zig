@@ -28,6 +28,7 @@ pub fn main() anyerror!void {
     });
 
     try system.initPositionsFromPosFile(std.mem.trim(u8, input.pos_file, " "));
+    system.initVelocities(input.temperature);
     std.debug.print("tem: {d}\n", .{input.temperature});
     std.debug.print("pos: {?}\n", .{system.atoms[0]});
 
