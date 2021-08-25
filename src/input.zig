@@ -22,7 +22,6 @@ pub const InputParserEntry = struct {
     name: []const u8,
     entry_type: type = bool,
     section: []const u8,
-    takes: enum { One, Many } = .One,
     default_value: ?union { int: comptime_int, float: comptime_float, string: []const u8, boolean: bool } = null,
 };
 
@@ -37,10 +36,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                 // Validate entry
                 fields[i] = .{
                     .name = entry.name,
-                    .field_type = switch (entry.takes) {
-                        .One => entry.entry_type,
-                        .Many => ArrayList(entry.entry_type),
-                    },
+                    .field_type = entry.entry_type,
                     .default_value = null,
                     .is_comptime = false,
                     .alignment = @alignOf(entry.entry_type),
@@ -62,16 +58,13 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
             // Initialize input parser result
             var parsed_entries: InputParserResult = undefined;
             inline for (entries) |entry| {
-                @field(parsed_entries, entry.name) = switch (entry.takes) {
-                    .One => switch (@typeInfo(entry.entry_type)) {
-                        .Pointer => blk: {
-                            var buf = try allocator.alloc(u8, config.line_buffer_size);
-                            mem.set(u8, buf, ' ');
-                            break :blk buf;
-                        },
-                        else => undefined,
+                @field(parsed_entries, entry.name) = switch (@typeInfo(entry.entry_type)) {
+                    .Pointer => blk: {
+                        var buf = try allocator.alloc(u8, config.line_buffer_size);
+                        mem.set(u8, buf, ' ');
+                        break :blk buf;
                     },
-                    .Many => ArrayList(entry.entry_type).init(allocator),
+                    else => undefined,
                 };
             }
 
@@ -90,7 +83,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
             // Section name
             var current_section: [config.line_buffer_size]u8 = undefined;
 
-            line_loop: while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
+            while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
                 // Skip comments
                 if (mem.startsWith(u8, line, config.comment_character)) continue;
 
@@ -121,57 +114,37 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
 
                 // Parse arguments
                 var tokens = mem.tokenize(u8, line, " ");
-                if (tokens.next()) |token| {
-                    inline for (entries) |entry, i| {
-                        if (mem.eql(u8, mem.trim(u8, &current_section, " "), entry.section)) {
-                            if (mem.eql(u8, token, entry.name)) {
-                                entry_found[i] = true;
-                                switch (entry.takes) {
-                                    .One => {
-                                        if (tokens.next()) |val| {
-                                            switch (@typeInfo(entry.entry_type)) {
-                                                .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val, 10),
-                                                .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val),
-                                                .Pointer => mem.copy(u8, @field(parsed_entries, entry.name), mem.trim(u8, val, " ")),
-                                                .Bool => @field(parsed_entries, entry.name) = blk: {
-                                                    if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
-                                                        break :blk true;
-                                                    } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
-                                                        break :blk false;
-                                                    } else {
-                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val});
-                                                        unreachable;
-                                                    }
-                                                },
-                                                else => unreachable,
-                                            }
-                                        } else {
-                                            try stopWithErrorMsg("Missing value for " ++ entry.name, .{});
-                                        }
-                                    },
-                                    .Many => {
-                                        while (tokens.next()) |val| {
-                                            if (mem.startsWith(u8, val, config.comment_character)) continue :line_loop;
-                                            switch (@typeInfo(entry.entry_type)) {
-                                                .Int => try @field(parsed_entries, entry.name).append(try fmt.parseInt(entry.entry_type, val, 10)),
-                                                .Float => try @field(parsed_entries, entry.name).append(try fmt.parseFloat(entry.entry_type, val)),
-                                                .Pointer => try @field(parsed_entries, entry.name).append(val),
-                                                .Bool => try @field(parsed_entries, entry.name).append(blk: {
-                                                    if (mem.eql(u8, val, "on") or mem.eql(u8, val, "On") or mem.eql(u8, val, "ON") or mem.eql(u8, val, "yes") or mem.eql(u8, val, "Yes") or mem.eql(u8, val, "YES") or mem.eql(u8, val, "true") or mem.eql(u8, val, "True") or mem.eql(u8, val, "TRUE")) {
-                                                        break :blk true;
-                                                    } else if (mem.eql(u8, val, "off") or mem.eql(u8, val, "Off") or mem.eql(u8, val, "OFF") or mem.eql(u8, val, "no") or mem.eql(u8, val, "No") or mem.eql(u8, val, "NO") or mem.eql(u8, val, "false") or mem.eql(u8, val, "False") or mem.eql(u8, val, "FALSE")) {
-                                                        break :blk false;
-                                                    } else {
-                                                        try stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val});
-                                                        unreachable;
-                                                    }
-                                                }),
-                                                else => unreachable,
-                                            }
-                                        }
-                                    },
-                                }
-                            }
+
+                // Get key
+                const key = if (tokens.next()) |token| token else {
+                    try stopWithErrorMsg("Missing key value in input file -> {s}", .{line});
+                    unreachable;
+                };
+
+                // Get value
+                const rest = tokens.rest();
+                const val = if (std.mem.indexOf(u8, rest, "#")) |index| rest[0..index] else rest;
+                const val_trim = std.mem.trim(u8, val, " ");
+
+                // Look for the corresponding input
+                inline for (entries) |entry, i| {
+                    const current_section_trim = mem.trim(u8, &current_section, " ");
+                    var in_section = mem.eql(u8, current_section_trim, entry.section);
+                    var in_entry = mem.eql(u8, key, entry.name);
+                    if (in_section and in_entry) {
+                        entry_found[i] = true;
+                        switch (@typeInfo(entry.entry_type)) {
+                            .Int => @field(parsed_entries, entry.name) = try fmt.parseInt(entry.entry_type, val_trim, 10),
+                            .Float => @field(parsed_entries, entry.name) = try fmt.parseFloat(entry.entry_type, val_trim),
+                            .Pointer => mem.copy(u8, @field(parsed_entries, entry.name), val_trim),
+                            .Bool => @field(parsed_entries, entry.name) = blk: {
+                                var buffer: [line_buffer_size]u8 = undefined;
+                                var val_up = std.ascii.upperString(&buffer, val_trim);
+                                if (mem.eql(u8, val_up, "ON") or mem.eql(u8, val_up, "YES") or mem.eql(u8, val_up, "TRUE")) break :blk true;
+                                if (mem.eql(u8, val_up, "OFF") or mem.eql(u8, val_up, "NO") or mem.eql(u8, val_up, "FALSE")) break :blk false;
+                                try stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val_trim});
+                            },
+                            else => unreachable,
                         }
                     }
                 }
@@ -203,12 +176,9 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
 
         pub fn deinit(allocator: *Allocator, parsed_entries: InputParserResult) void {
             inline for (entries) |entry| {
-                switch (entry.takes) {
-                    .One => switch (@typeInfo(entry.entry_type)) {
-                        .Pointer => allocator.free(@field(parsed_entries, entry.name)),
-                        else => {},
-                    },
-                    .Many => @field(parsed_entries, entry.name).deinit(),
+                switch (@typeInfo(entry.entry_type)) {
+                    .Pointer => allocator.free(@field(parsed_entries, entry.name)),
+                    else => {},
                 }
             }
         }
