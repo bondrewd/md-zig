@@ -27,10 +27,12 @@ pub fn main() anyerror!void {
         .rng_seed = input.rng_seed,
     });
 
+    try system.initInteractions(input.mol_file);
     try system.initPositions(input.pos_file);
     system.initVelocities(input.temperature);
     std.debug.print("tem: {d}\n", .{input.temperature});
     std.debug.print("pos: {?}\n", .{system.atoms[0]});
+    std.debug.print("int: {?}\n", .{system.interactions.lennard_jones.?[0]});
 
     //const of = try std.fs.cwd().createFile(args.output, .{});
     //const ow = of.writer();

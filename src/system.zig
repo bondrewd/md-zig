@@ -4,8 +4,11 @@ const Vec = @import("vec.zig").Vec;
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
 const PosFile = @import("file.zig").PosFile;
+const MolFile = @import("file.zig").MolFile;
+const Interactions = @import("interactions.zig").Interactions;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 const integratorFromString = @import("integrator.zig").integratorFromString;
+const LennardJonesInteraction = @import("interactions.zig").LennardJonesInteraction;
 
 const kb = @import("constant.zig").kb;
 
@@ -16,6 +19,7 @@ pub const System = struct {
     random: Random = undefined,
     region: Vec = Vec{},
     atoms: []Atom = undefined,
+    interactions: Interactions = Interactions{},
     properties: SystemProperties = SystemProperties{},
 
     const Energy = struct {
@@ -71,6 +75,9 @@ pub const System = struct {
 
     pub fn deinit(self: Self) void {
         self.allocator.free(self.atoms);
+        if (self.interactions.lennard_jones) {
+            self.allocator.free(self.interactions.lennard_jones);
+        }
     }
 
     pub fn initPositionsFromPosFile(self: *Self, file_name: []const u8) !void {
@@ -133,6 +140,36 @@ pub const System = struct {
 
             // Assign random velocity
             atom.v = vec.scale(vec.mul(a, b), s);
+        }
+    }
+
+    pub fn initInteractionsFromMolFile(self: *Self, file_name: []const u8) !void {
+        const mol_file = try MolFile(.{}).init(self.allocator, file_name);
+        defer mol_file.deinit();
+
+        if (mol_file.lennard_jones.len > 0) {
+            self.interactions.lennard_jones = mol_file.lennard_jones;
+        }
+    }
+
+    pub fn initInteractions(self: *Self, file_name: []const u8) !void {
+        // Trim string
+        const file_name_trim = std.mem.trim(u8, file_name, " ");
+
+        // Find extension
+        var tokens = std.mem.tokenize(u8, file_name_trim, ".");
+        var ext: ?[]const u8 = null;
+        while (tokens.rest().len != 0) ext = tokens.next();
+
+        // Parse extension
+        if (ext) |e| {
+            if (std.mem.eql(u8, e, "mol")) {
+                try self.initInteractionsFromMolFile(file_name_trim);
+            } else {
+                try stopWithErrorMsg("Unknown molecular file extension -> {s}", .{e});
+            }
+        } else {
+            try stopWithErrorMsg("Can't infer file type from extension -> {s}", .{file_name_trim});
         }
     }
 
