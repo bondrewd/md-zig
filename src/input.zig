@@ -123,7 +123,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
 
                 // Get value
                 const rest = tokens.rest();
-                const val = if (std.mem.indexOf(u8, rest, "#")) |index| rest[0..index] else rest;
+                const val = if (std.mem.indexOf(u8, rest, config.comment_character)) |index| rest[0..index] else rest;
                 const val_trim = std.mem.trim(u8, val, " ");
 
                 // Look for the corresponding input
