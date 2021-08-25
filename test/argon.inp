@@ -9,6 +9,7 @@ n_steps       = 100               # number of MD steps
 time_step     = 0.001             # timestep (ps)
 ensemble      = NVE               # [NVE]
 rng_seed      = 0                 # If zero it is automatically generated
+temperature   = 298               # Temperature (K)
  
 [BOUNDARY]
 boundary_type = PBC               # [NOBC,PBC]

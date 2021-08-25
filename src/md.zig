@@ -28,7 +28,8 @@ pub fn main() anyerror!void {
     });
 
     try system.initPositionsFromPosFile(std.mem.trim(u8, input.pos_file, " "));
-    std.debug.print("pos: {?}\n", .{system.atoms});
+    std.debug.print("tem: {d}\n", .{input.temperature});
+    std.debug.print("pos: {?}\n", .{system.atoms[0]});
 
     //const of = try std.fs.cwd().createFile(args.output, .{});
     //const ow = of.writer();

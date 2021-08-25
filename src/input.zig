@@ -257,6 +257,11 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
         .section = "DYNAMICS",
     },
     .{
+        .name = "temperature",
+        .entry_type = Real,
+        .section = "DYNAMICS",
+    },
+    .{
         .name = "boundary_type",
         .entry_type = []u8,
         .section = "BOUNDARY",
