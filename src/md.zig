@@ -27,32 +27,31 @@ pub fn main() anyerror!void {
         .rng_seed = input.rng_seed,
     });
 
-    try system.initInteractions(input.mol_file);
     try system.initPositions(input.pos_file);
+    try system.initForceField(input.mol_file);
     system.initVelocities(input.temperature);
-    std.debug.print("tem: {d}\n", .{input.temperature});
-    std.debug.print("pos: {?}\n", .{system.atoms[0]});
-    std.debug.print("int: {?}\n", .{system.interactions.lennard_jones.?[0]});
 
-    //const of = try std.fs.cwd().createFile(args.output, .{});
-    //const ow = of.writer();
-    //const reporter = Reporter.init(&system);
-    //try reporter.writeHeader(ow);
-    //try reporter.report(ow, 0);
+    const of = try std.fs.cwd().createFile(args.output, .{});
+    const ow = of.writer();
+    const reporter = Reporter.init(&system);
+    try reporter.writeHeader(ow);
+    try reporter.report(ow, 0);
 
-    //const stdout = std.io.getStdOut().writer();
-    //const progress_bar = ProgressBar.init(stdout, .{});
+    const stdout = std.io.getStdOut().writer();
+    const progress_bar = ProgressBar.init(stdout, .{});
 
-    //var istep: usize = 1;
-    //while (istep <= input.step_total) : (istep += 1) {
-    //integrator.step();
-    //try progress_bar.displayProgress(istep, 1, input.step_total);
+    var istep: usize = 1;
+    while (istep <= input.n_steps) : (istep += 1) {
+        system.integrate(&system);
+        try progress_bar.displayProgress(istep, 1, input.n_steps);
 
-    //if (istep % input.step_save == 0) {
-    //system.updateEnergies();
-    //try reporter.report(ow, istep);
-    //}
-    //}
+        // TODO: save step is currently hard-coded
+        //if (istep % input.step_save == 0) {
+        if (istep % 10 == 0) {
+            system.updateEnergy();
+            try reporter.report(ow, istep);
+        }
+    }
 }
 
 const ArgParser = ArgumentParser(.{

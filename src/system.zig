@@ -5,22 +5,21 @@ const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
-const Interactions = @import("interactions.zig").Interactions;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 const integratorFromString = @import("integrator.zig").integratorFromString;
-const LennardJonesInteraction = @import("interactions.zig").LennardJonesInteraction;
+const LennardJonesParameters = @import("file/mol_file.zig").LennardJonesParameters;
 
 const kb = @import("constant.zig").kb;
 
 pub const System = struct {
     allocator: *std.mem.Allocator = undefined,
-    integrator: fn (*Self) void = undefined,
+    integrate: fn (*Self) void = undefined,
     time_step: Real = undefined,
     random: Random = undefined,
     region: Vec = Vec{},
     atoms: []Atom = undefined,
-    interactions: Interactions = Interactions{},
-    properties: SystemProperties = SystemProperties{},
+    lennard_jones_parameters: []LennardJonesParameters = undefined,
+    properties: SystemProperties = undefined,
 
     const Energy = struct {
         kinetic: Real = 0,
@@ -53,8 +52,8 @@ pub const System = struct {
         // Set allocator
         system.allocator = config.allocator;
 
-        // Set integrator
-        system.integrator = try integratorFromString(config.integrator);
+        // Set integrator function
+        system.integrate = try integratorFromString(config.integrator);
 
         // Set time step
         system.time_step = config.time_step;
@@ -75,6 +74,7 @@ pub const System = struct {
 
     pub fn deinit(self: Self) void {
         self.allocator.free(self.atoms);
+        self.allocator.free(self.atom_properties);
         if (self.interactions.lennard_jones) {
             self.allocator.free(self.interactions.lennard_jones);
         }
@@ -121,8 +121,7 @@ pub const System = struct {
         // Initialize with random velocities
         for (self.atoms) |*atom| {
             // Sigma
-            // TODO: Mass is currently hard-coded
-            const s = std.math.sqrt(kb * temperature / 39.948);
+            const s = std.math.sqrt(kb * temperature / atom.m);
 
             // Alpha
             const a = Vec{
@@ -143,16 +142,19 @@ pub const System = struct {
         }
     }
 
-    pub fn initInteractionsFromMolFile(self: *Self, file_name: []const u8) !void {
-        const mol_file = try MolFile(.{}).init(self.allocator, file_name);
+    pub fn initForceFieldFromMolFile(self: *Self, file_name: []const u8) !void {
+        var mol_file = try MolFile(.{}).init(self.allocator, file_name);
         defer mol_file.deinit();
 
-        if (mol_file.lennard_jones.len > 0) {
-            self.interactions.lennard_jones = mol_file.lennard_jones;
+        self.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
+
+        for (mol_file.atom_properties.items) |prop, i| {
+            self.atoms[i].m = prop.mass;
+            self.atoms[i].q = prop.charge;
         }
     }
 
-    pub fn initInteractions(self: *Self, file_name: []const u8) !void {
+    pub fn initForceField(self: *Self, file_name: []const u8) !void {
         // Trim string
         const file_name_trim = std.mem.trim(u8, file_name, " ");
 
@@ -164,7 +166,7 @@ pub const System = struct {
         // Parse extension
         if (ext) |e| {
             if (std.mem.eql(u8, e, "mol")) {
-                try self.initInteractionsFromMolFile(file_name_trim);
+                try self.initForceFieldFromMolFile(file_name_trim);
             } else {
                 try stopWithErrorMsg("Unknown molecular file extension -> {s}", .{e});
             }

@@ -24,11 +24,11 @@ pub const Reporter = struct {
     pub fn report(self: Self, writer: anytype, step: u64) !void {
         try writer.print(" {d:>12} {d:>12.3} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5}\n", .{
             step,
-            @intToFloat(Real, step) * self.system.dt,
-            self.system.temperature,
-            self.system.energy.kinetic,
-            self.system.energy.potential,
-            self.system.energy.total,
+            @intToFloat(Real, step) * self.system.time_step,
+            self.system.properties.temperature,
+            self.system.properties.energy.kinetic,
+            self.system.properties.energy.potential,
+            self.system.properties.energy.total,
         });
     }
 };
