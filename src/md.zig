@@ -27,7 +27,7 @@ pub fn main() anyerror!void {
         .rng_seed = input.rng_seed,
     });
 
-    try system.initPositionsFromPosFile(std.mem.trim(u8, input.pos_file, " "));
+    try system.initPositions(input.pos_file);
     system.initVelocities(input.temperature);
     std.debug.print("tem: {d}\n", .{input.temperature});
     std.debug.print("pos: {?}\n", .{system.atoms[0]});

@@ -4,6 +4,7 @@ const Vec = @import("vec.zig").Vec;
 const Atom = @import("atom.zig").Atom;
 const Real = @import("config.zig").Real;
 const PosFile = @import("file.zig").PosFile;
+const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 const integratorFromString = @import("integrator.zig").integratorFromString;
 
 const kb = @import("constant.zig").kb;
@@ -82,6 +83,27 @@ pub const System = struct {
             atom.r.y = pos_file.pos[i].y;
             atom.r.z = pos_file.pos[i].z;
             atom.id = pos_file.id[i];
+        }
+    }
+
+    pub fn initPositions(self: *Self, file_name: []const u8) !void {
+        // Trim string
+        const file_name_trim = std.mem.trim(u8, file_name, " ");
+
+        // Find extension
+        var tokens = std.mem.tokenize(u8, file_name_trim, ".");
+        var ext: ?[]const u8 = null;
+        while (tokens.rest().len != 0) ext = tokens.next();
+
+        // Parse extension
+        if (ext) |e| {
+            if (std.mem.eql(u8, e, "pos")) {
+                try self.initPositionsFromPosFile(file_name_trim);
+            } else {
+                try stopWithErrorMsg("Unknown position file extension -> {s}", .{e});
+            }
+        } else {
+            try stopWithErrorMsg("Can't infer file type from extension -> {s}", .{file_name_trim});
         }
     }
 
