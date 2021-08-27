@@ -2,10 +2,13 @@
 mol_file      = ./test/argon.mol  # Molecule file
 grp_file      = ./test/argon.grp  # Group file
 pos_file      = ./test/argon.pos  # Position file
+
+[OUTPUT]
+out_ts_step   = 100               # Save time series every 10 steps
  
 [DYNAMICS]
 integrator    = LEAP              # [LEAP,VVER]
-n_steps       = 100               # number of MD steps
+n_steps       = 100000            # number of MD steps
 time_step     = 0.001             # timestep (ps)
 ensemble      = NVE               # [NVE]
 rng_seed      = 0                 # If zero it is automatically generated

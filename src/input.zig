@@ -156,7 +156,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
                         switch (@typeInfo(entry.entry_type)) {
                             .Int => @field(parsed_entries, entry.name) = default.int,
                             .Float => @field(parsed_entries, entry.name) = default.float,
-                            .Pointer => @field(parsed_entries, entry.name) = default.string,
+                            .Pointer => std.mem.copy(u8, @field(parsed_entries, entry.name), default.string),
                             .Bool => @field(parsed_entries, entry.name) = default.boolean,
                             else => unreachable,
                         }
@@ -200,6 +200,18 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
         .name = "pos_file",
         .entry_type = []u8,
         .section = "INPUT",
+    },
+    .{
+        .name = "out_ts_name",
+        .entry_type = []u8,
+        .section = "OUTPUT",
+        .default_value = .{ .string = "out.ts" },
+    },
+    .{
+        .name = "out_ts_step",
+        .entry_type = u64,
+        .section = "OUTPUT",
+        .default_value = .{ .int = 0 },
     },
     .{
         .name = "integrator",

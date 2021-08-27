@@ -8,18 +8,20 @@ const MolFile = @import("file.zig").MolFile;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 const integratorFromString = @import("integrator.zig").integratorFromString;
 const LennardJonesParameters = @import("file/mol_file.zig").LennardJonesParameters;
+const lennardJonesInteraction = @import("interaction.zig").lennardJonesInteraction;
 
 const kb = @import("constant.zig").kb;
 
 pub const System = struct {
     allocator: *std.mem.Allocator = undefined,
-    integrate: fn (*Self) void = undefined,
+    integrator: fn (*Self) void = undefined,
     time_step: Real = undefined,
     random: Random = undefined,
     region: Vec = Vec{},
     atoms: []Atom = undefined,
     lennard_jones_parameters: []LennardJonesParameters = undefined,
     properties: SystemProperties = undefined,
+    interactions: []fn (*Self) void = undefined,
 
     const Energy = struct {
         kinetic: Real = 0,
@@ -53,7 +55,7 @@ pub const System = struct {
         system.allocator = config.allocator;
 
         // Set integrator function
-        system.integrate = try integratorFromString(config.integrator);
+        system.integrator = try integratorFromString(config.integrator);
 
         // Set time step
         system.time_step = config.time_step;
@@ -74,10 +76,9 @@ pub const System = struct {
 
     pub fn deinit(self: Self) void {
         self.allocator.free(self.atoms);
+        self.allocator.free(self.interactions);
         self.allocator.free(self.atom_properties);
-        if (self.interactions.lennard_jones) {
-            self.allocator.free(self.interactions.lennard_jones);
-        }
+        self.allocator.free(self.lennard_jones_parameters);
     }
 
     pub fn initPositionsFromPosFile(self: *Self, file_name: []const u8) !void {
@@ -146,7 +147,13 @@ pub const System = struct {
         var mol_file = try MolFile(.{}).init(self.allocator, file_name);
         defer mol_file.deinit();
 
+        var interactions = std.ArrayList(fn (*Self) void).init(self.allocator);
+
+        if (mol_file.lennard_jones_parameters.items.len > 0) {
+            try interactions.append(lennardJonesInteraction);
+        }
         self.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
+        self.interactions = interactions.toOwnedSlice();
 
         for (mol_file.atom_properties.items) |prop, i| {
             self.atoms[i].m = prop.mass;
@@ -175,7 +182,15 @@ pub const System = struct {
         }
     }
 
-    pub fn updateForces(_: Self) void {}
+    pub fn updateForces(self: *Self) void {
+        for (self.interactions) |interaction| {
+            interaction(self);
+        }
+    }
+
+    pub fn integrate(self: *Self) void {
+        self.integrator(self);
+    }
 
     pub fn updateKineticEnergy(self: *Self) void {
         var kinetic: Real = 0.0;

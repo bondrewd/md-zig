@@ -31,9 +31,12 @@ pub fn main() anyerror!void {
     try system.initForceField(input.mol_file);
     system.initVelocities(input.temperature);
 
-    const of = try std.fs.cwd().createFile(args.output, .{});
+    const of_name = std.mem.trim(u8, input.out_ts_name, " ");
+    const of = try std.fs.cwd().createFile(of_name, .{});
     const ow = of.writer();
     const reporter = Reporter.init(&system);
+
+    system.updateEnergy();
     try reporter.writeHeader(ow);
     try reporter.report(ow, 0);
 
@@ -42,12 +45,10 @@ pub fn main() anyerror!void {
 
     var istep: usize = 1;
     while (istep <= input.n_steps) : (istep += 1) {
-        system.integrate(&system);
+        system.integrate();
         try progress_bar.displayProgress(istep, 1, input.n_steps);
 
-        // TODO: save step is currently hard-coded
-        //if (istep % input.step_save == 0) {
-        if (istep % 10 == 0) {
+        if (input.out_ts_step > 0 and istep % input.out_ts_step == 0) {
             system.updateEnergy();
             try reporter.report(ow, istep);
         }
@@ -70,15 +71,5 @@ const ArgParser = ArgumentParser(.{
         .argument_type = []const u8,
         .takes = .One,
         .required = true,
-    },
-    .{
-        .name = "output",
-        .long = "--output",
-        .short = "-o",
-        .description = "Output file name (Defult: out.md)",
-        .metavar = "<FILE>",
-        .argument_type = []const u8,
-        .takes = .One,
-        .default_value = .{ .string = "out.md" },
     },
 });
