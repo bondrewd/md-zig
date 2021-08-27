@@ -8,7 +8,8 @@ const MolFile = @import("file.zig").MolFile;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 const integratorFromString = @import("integrator.zig").integratorFromString;
 const LennardJonesParameters = @import("file/mol_file.zig").LennardJonesParameters;
-const lennardJonesInteraction = @import("interaction.zig").lennardJonesInteraction;
+const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
+const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
 
 const kb = @import("constant.zig").kb;
 
@@ -21,7 +22,8 @@ pub const System = struct {
     atoms: []Atom = undefined,
     lennard_jones_parameters: []LennardJonesParameters = undefined,
     properties: SystemProperties = undefined,
-    interactions: []fn (*Self) void = undefined,
+    force_interactions: []fn (*Self) void = undefined,
+    energy_interactions: []fn (*Self) void = undefined,
 
     const Energy = struct {
         kinetic: Real = 0,
@@ -147,13 +149,17 @@ pub const System = struct {
         var mol_file = try MolFile(.{}).init(self.allocator, file_name);
         defer mol_file.deinit();
 
-        var interactions = std.ArrayList(fn (*Self) void).init(self.allocator);
+        var force_interactions = std.ArrayList(fn (*Self) void).init(self.allocator);
+        var energy_interactions = std.ArrayList(fn (*Self) void).init(self.allocator);
 
         if (mol_file.lennard_jones_parameters.items.len > 0) {
-            try interactions.append(lennardJonesInteraction);
+            try force_interactions.append(lennardJonesForceInteraction);
+            try energy_interactions.append(lennardJonesEnergyInteraction);
         }
         self.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
-        self.interactions = interactions.toOwnedSlice();
+
+        self.force_interactions = force_interactions.toOwnedSlice();
+        self.energy_interactions = energy_interactions.toOwnedSlice();
 
         for (mol_file.atom_properties.items) |prop, i| {
             self.atoms[i].m = prop.mass;
@@ -183,9 +189,7 @@ pub const System = struct {
     }
 
     pub fn updateForces(self: *Self) void {
-        for (self.interactions) |interaction| {
-            interaction(self);
-        }
+        for (self.force_interactions) |interaction| interaction(self);
     }
 
     pub fn integrate(self: *Self) void {
@@ -201,8 +205,13 @@ pub const System = struct {
         self.properties.energy.kinetic = 0.5 * kinetic;
     }
 
+    pub fn updatePotentialEnergy(self: *Self) void {
+        for (self.energy_interactions) |interaction| interaction(self);
+    }
+
     pub fn updateEnergy(self: *Self) void {
         self.updateKineticEnergy();
+        self.updatePotentialEnergy();
         self.properties.energy.total = self.properties.energy.kinetic + self.properties.energy.potential;
     }
 };
