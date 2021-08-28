@@ -3,6 +3,7 @@ const vec = @import("vec.zig");
 const Vec = @import("vec.zig").Vec;
 const kb = @import("constant.zig").kb;
 const Real = @import("config.zig").Real;
+const TsFile = @import("file/ts_file.zig").TsFile;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
 const ForceField = @import("ff.zig").ForceField;
@@ -11,8 +12,6 @@ const Input = @import("input.zig").MdInputFileParserResult;
 
 const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
 const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
-
-//const integratorFromString = @import("integrator.zig").integratorFromString;
 
 pub const System = struct {
     allocator: *std.mem.Allocator = undefined,
@@ -27,6 +26,9 @@ pub const System = struct {
     temperature: Real = undefined,
     integrator: Integrator = undefined,
     energy: struct { kinetic: Real, potential: Real } = undefined,
+    current_step: u64 = undefined,
+    ts_file: TsFile = undefined,
+    ts_file_out: u64 = undefined,
 
     const Self = @This();
 
@@ -36,6 +38,9 @@ pub const System = struct {
 
         // Set allocator
         system.allocator = allocator;
+
+        // Set current step
+        system.current_step = 0;
 
         // Parse pos file
         var pos_file_name = std.mem.trim(u8, input.pos_file, " ");
@@ -97,7 +102,9 @@ pub const System = struct {
         // Initialize integrator
         system.integrator = try Integrator.init(input);
 
-        // Initialize reporter
+        // Initialize time series file
+        system.ts_file = try TsFile.init(input);
+        system.ts_file_out = input.out_ts_step;
 
         return system;
     }
@@ -165,10 +172,21 @@ pub const System = struct {
 
     pub fn calculateTemperature(self: *Self) void {
         self.calculateKineticEnergy();
-        self.temperature = 2.0 * self.energy.kinetic / (3.0 * self.r.len * kb);
+        const dof = 3.0 * @intToFloat(Real, self.r.len);
+        self.temperature = 2.0 * self.energy.kinetic / (dof * kb);
     }
 
     pub fn step(self: *Self) !void {
         self.integrator.evolveSystem(self);
+        self.current_step += 1;
+
+        if (self.current_step % self.ts_file_out == 0) {
+            // Calculate properties
+            self.calculateEnergyInteractions();
+            self.calculateKineticEnergy();
+            self.calculateTemperature();
+            // Report properties
+            try self.ts_file.printDataLine(self);
+        }
     }
 };
