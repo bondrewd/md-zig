@@ -43,7 +43,7 @@ pub const TsFile = struct {
     }
 
     pub fn printDataLine(self: Self, system: *System) !void {
-        try self.writer.print(" {d:>12} {d:>12.3} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5}\n", .{
+        try self.writer.print(" {d:>12} {d:>12.3} {d:>12.5} {e:>12.5} {e:>12.5} {e:>12.5}\n", .{
             system.current_step,
             @intToFloat(Real, system.current_step) * system.integrator.dt,
             system.temperature,

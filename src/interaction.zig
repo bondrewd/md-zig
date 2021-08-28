@@ -23,9 +23,10 @@ pub fn lennardJonesForceInteraction(system: *System) void {
             const e = std.math.sqrt(ei * ej);
             const s = (si + sj) / 2.0;
             const s2 = s * s;
-            const cut_off2 = std.math.pow(Real, 2.0, 1.0 / 3.0) * s2;
+            const cut_off2 = 6.25 * s2;
 
-            const rij = vec.sub(ri, rj);
+            var rij = vec.sub(ri, rj);
+            if (system.use_pbc) rij = vec.wrap(rij, system.region);
             const rij2 = vec.dot(rij, rij);
 
             if (rij2 < cut_off2) {
@@ -64,9 +65,10 @@ pub fn lennardJonesEnergyInteraction(system: *System) void {
             const e = std.math.sqrt(ei * ej);
             const s = (si + sj) / 2.0;
             const s2 = s * s;
-            const cut_off2 = std.math.pow(Real, 2.0, 1.0 / 3.0) * s2;
+            const cut_off2 = 6.25 * s2;
 
-            const rij = vec.sub(ri, rj);
+            var rij = vec.sub(ri, rj);
+            if (system.use_pbc) rij = vec.wrap(rij, system.region);
             const rij2 = vec.dot(rij, rij);
 
             if (rij2 < cut_off2) {

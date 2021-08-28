@@ -54,19 +54,19 @@ pub fn scale(v: Vec, s: Real) Vec {
 pub fn wrap(v: Vec, box: Vec) Vec {
     var wrapped = v;
 
-    if (v.x >= 0.5 * box.x) {
+    if (v.x > 0.5 * box.x) {
         wrapped.x -= box.x;
     } else if (v.x < -0.5 * box.x) {
         wrapped.x += box.x;
     }
 
-    if (v.y >= 0.5 * box.y) {
+    if (v.y > 0.5 * box.y) {
         wrapped.y -= box.y;
     } else if (v.y < -0.5 * box.y) {
         wrapped.y += box.y;
     }
 
-    if (v.z >= 0.5 * box.z) {
+    if (v.z > 0.5 * box.z) {
         wrapped.z -= box.z;
     } else if (v.z < -0.5 * box.z) {
         wrapped.z += box.z;

@@ -33,9 +33,9 @@ pub const XyzFile = struct {
         try self.writer.print("\n", .{});
         for (system.r) |r| {
             try self.writer.print("H  {d:>8.3}  {d:>8.3}  {d:>8.3}\n", .{
-                r.x * 10,
-                r.y * 10,
-                r.z * 10,
+                r.x,
+                r.y,
+                r.z,
             });
         }
     }

@@ -28,6 +28,8 @@ pub const System = struct {
     integrator: Integrator = undefined,
     energy: struct { kinetic: Real, potential: Real } = undefined,
     current_step: u64 = undefined,
+    region: Vec = undefined,
+    use_pbc: bool = undefined,
 
     ts_file: TsFile = undefined,
     ts_file_out: u64 = undefined,
@@ -45,6 +47,16 @@ pub const System = struct {
 
         // Set current step
         system.current_step = 0;
+
+        // Set region
+        const bc = std.mem.trim(u8, input.boundary_type, " ");
+        if (std.mem.eql(u8, bc, "PBC")) {
+            system.region = .{ .x = input.region_x, .y = input.region_y, .z = input.region_z };
+            system.use_pbc = true;
+        } else {
+            system.region = .{ .x = 0, .y = 0, .z = 0 };
+            system.use_pbc = false;
+        }
 
         // Parse pos file
         var pos_file_name = std.mem.trim(u8, input.pos_file, " ");
@@ -158,11 +170,21 @@ pub const System = struct {
     }
 
     pub fn calculateForceInteractions(self: *Self) void {
+        // Reset forces
+        var i: usize = 0;
+        while (i < self.f.len) : (i += 1) {
+            self.f[i] = Vec{ .x = 0.0, .y = 0.0, .z = 0.0 };
+        }
+
+        // Calculate forces
         for (self.ff.force_interactions) |f| f(self);
     }
 
     pub fn calculateEnergyInteractions(self: *Self) void {
+        // Reset energy
         self.energy.potential = 0;
+
+        // Calculate energy
         for (self.ff.energy_interactions) |f| f(self);
     }
 
@@ -184,9 +206,21 @@ pub const System = struct {
     }
 
     pub fn step(self: *Self) !void {
+        // Integrate equations of motion
         self.integrator.evolveSystem(self);
+
+        // Wrap system
+        if (self.use_pbc) {
+            var i: usize = 0;
+            while (i < self.r.len) : (i += 1) {
+                self.r[i] = vec.wrap(self.r[i], self.region);
+            }
+        }
+
+        // Update step counter
         self.current_step += 1;
 
+        // Write ts file
         if (self.current_step % self.ts_file_out == 0) {
             // Calculate properties
             self.calculateEnergyInteractions();
@@ -196,6 +230,7 @@ pub const System = struct {
             try self.ts_file.printDataLine(self);
         }
 
+        // Write xyz file
         if (self.current_step % self.xyz_file_out == 0) {
             try self.xyz_file.printDataFrame(self);
         }

@@ -4,12 +4,12 @@ grp_file      = ./test/argon.grp  # Group file
 pos_file      = ./test/argon.pos  # Position file
 
 [OUTPUT]
-out_ts_step   = 10                # Save time series every 10 steps
-out_xyz_step  = 10                # Save coordinates every 10 steps
+out_ts_step   = 100               # Save time series every 10 steps
+out_xyz_step  = 100               # Save coordinates every 10 steps
  
 [DYNAMICS]
 integrator    = LEAP              # [LEAP,VVER]
-n_steps       = 1000              # number of MD steps
+n_steps       = 100000            # number of MD steps
 time_step     = 0.001             # timestep (ps)
 ensemble      = NVE               # [NVE]
 rng_seed      = 0                 # If zero it is automatically generated
@@ -17,6 +17,6 @@ temperature   = 298               # Temperature (K)
  
 [BOUNDARY]
 boundary_type = PBC               # [NOBC,PBC]
-region_size_x = 3.5               # region size (x) in [PBC]
-region_size_y = 3.5               # region size (y) in [PBC]
-region_size_z = 3.5               # region size (z) in [PBC]
+region_x      = 6.0               # region size (x) in nm for [PBC]
+region_y      = 6.0               # region size (y) in nm for [PBC]
+region_z      = 6.0               # region size (z) in nm for [PBC]

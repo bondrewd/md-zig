@@ -261,17 +261,17 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .section = "BOUNDARY",
     },
     .{
-        .name = "region_size_x",
+        .name = "region_x",
         .entry_type = Real,
         .section = "BOUNDARY",
     },
     .{
-        .name = "region_size_y",
+        .name = "region_y",
         .entry_type = Real,
         .section = "BOUNDARY",
     },
     .{
-        .name = "region_size_z",
+        .name = "region_z",
         .entry_type = Real,
         .section = "BOUNDARY",
     },
