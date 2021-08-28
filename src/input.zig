@@ -10,7 +10,7 @@ const TypeInfo = std.builtin.TypeInfo;
 const StructField = TypeInfo.StructField;
 const Declaration = TypeInfo.Declaration;
 
-pub const InputParserConfiguration = struct {
+pub const InputFileParserConfiguration = struct {
     line_buffer_size: usize = 1024,
     separator: []const u8 = " ",
     section_opening: []const u8 = "[",
@@ -18,18 +18,18 @@ pub const InputParserConfiguration = struct {
     comment_character: []const u8 = "#",
 };
 
-pub const InputParserEntry = struct {
+pub const InputFileParserEntry = struct {
     name: []const u8,
     entry_type: type = bool,
     section: []const u8,
     default_value: ?union { int: comptime_int, float: comptime_float, string: []const u8, boolean: bool } = null,
 };
 
-pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: anytype) type {
+pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime entries: anytype) type {
     return struct {
         const Self = @This();
 
-        pub const InputParserResult = blk: {
+        pub const InputFileParserResult = blk: {
             // Struct fields
             var fields: [entries.len]StructField = undefined;
             inline for (entries) |entry, i| {
@@ -54,9 +54,15 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
             } });
         };
 
-        pub fn parseInputFile(allocator: *Allocator, f: std.fs.File) !InputParserResult {
+        pub fn parse(allocator: *Allocator, input_file_name: []const u8) !InputFileParserResult {
+            var f = std.fs.cwd().openFile(input_file_name, .{ .read = true }) catch {
+                try stopWithErrorMsg("Can't open file {s}", .{input_file_name});
+                unreachable;
+            };
+            std.debug.print("file: {?}\n", .{f});
+
             // Initialize input parser result
-            var parsed_entries: InputParserResult = undefined;
+            var parsed_entries: InputFileParserResult = undefined;
             inline for (entries) |entry| {
                 @field(parsed_entries, entry.name) = switch (@typeInfo(entry.entry_type)) {
                     .Pointer => blk: {
@@ -169,12 +175,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
             return parsed_entries;
         }
 
-        pub fn parse(allocator: *Allocator, input_file_name: []const u8) !InputParserResult {
-            var f = try std.fs.cwd().openFile(input_file_name, .{ .read = true });
-            return try parseInputFile(allocator, f);
-        }
-
-        pub fn deinit(allocator: *Allocator, parsed_entries: InputParserResult) void {
+        pub fn deinitInput(allocator: *Allocator, parsed_entries: InputFileParserResult) void {
             inline for (entries) |entry| {
                 switch (@typeInfo(entry.entry_type)) {
                     .Pointer => allocator.free(@field(parsed_entries, entry.name)),
@@ -185,7 +186,7 @@ pub fn InputParser(comptime config: InputParserConfiguration, comptime entries: 
     };
 }
 
-pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry{
+pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParserEntry{
     .{
         .name = "mol_file",
         .entry_type = []u8,
@@ -264,3 +265,5 @@ pub const MdInputParser = InputParser(.{ .separator = "=" }, [_]InputParserEntry
         .section = "BOUNDARY",
     },
 });
+
+pub const MdInputFileParserResult = MdInputFileParser.InputFileParserResult;

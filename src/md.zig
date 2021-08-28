@@ -1,59 +1,36 @@
 const std = @import("std");
-
 const System = @import("system.zig").System;
-const Reporter = @import("reporter.zig").Reporter;
-const ProgressBar = @import("progress_bar.zig").ProgressBar;
-const MdInputParser = @import("input.zig").MdInputParser;
-
-const argparse = @import("argparse-zig/src/argparse.zig");
-const ArgumentParser = argparse.ArgumentParser;
-const ArgumentParserOption = argparse.ArgumentParserOption;
+const MdInputFileParser = @import("input.zig").MdInputFileParser;
 
 pub fn main() anyerror!void {
+    // Get allocator
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     var allocator = &arena.allocator;
 
+    // Parse arguments
     const args = try ArgParser.parse(allocator);
     defer ArgParser.deinitArgs(args);
 
-    const input = try MdInputParser.parse(allocator, args.input);
-    defer MdInputParser.deinit(allocator, input);
+    // Parse input file
+    const input = try MdInputFileParser.parse(allocator, args.input);
+    defer MdInputFileParser.deinitInput(allocator, input);
 
-    var system = try System.init(.{
-        .allocator = allocator,
-        .integrator = input.integrator,
-        .time_step = input.time_step,
-        .rng_seed = input.rng_seed,
-    });
+    // Init system
+    var system = try System.init(allocator, input);
+    defer system.deinit();
 
-    try system.initPositions(input.pos_file);
-    try system.initForceField(input.mol_file);
-    system.initVelocities(input.temperature);
-
-    const of_name = std.mem.trim(u8, input.out_ts_name, " ");
-    const of = try std.fs.cwd().createFile(of_name, .{});
-    const ow = of.writer();
-    const reporter = Reporter.init(&system);
-
-    system.updateEnergy();
-    try reporter.writeHeader(ow);
-    try reporter.report(ow, 0);
-
-    const stdout = std.io.getStdOut().writer();
-    const progress_bar = ProgressBar.init(stdout, .{});
-
+    // Perform MD
     var istep: usize = 1;
     while (istep <= input.n_steps) : (istep += 1) {
-        system.integrate();
-        try progress_bar.displayProgress(istep, 1, input.n_steps);
-
-        if (input.out_ts_step > 0 and istep % input.out_ts_step == 0) {
-            system.updateEnergy();
-            try reporter.report(ow, istep);
-        }
+        try system.step();
     }
 }
+
+// Argument parser
+const argparse = @import("argparse-zig/src/argparse.zig");
+const ArgumentParser = argparse.ArgumentParser;
+const ArgumentParserOption = argparse.ArgumentParserOption;
 
 const ArgParser = ArgumentParser(.{
     .bin_name = "md",
