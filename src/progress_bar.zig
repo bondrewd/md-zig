@@ -7,6 +7,8 @@ pub const ProgressBar = struct {
     l_sep: []const u8,
     blocks: []const []const u8,
     length: u32,
+    min: usize,
+    max: usize,
 
     const Self = @This();
 
@@ -16,7 +18,14 @@ pub const ProgressBar = struct {
         l_sep: ?[]const u8 = null,
         blocks: ?[]const []const u8 = null,
         length: ?u8 = null,
+        min: usize,
+        max: usize,
     };
+
+    pub fn initStdOut(config: ProgressBarConfig) !Self {
+        var stdout = std.io.getStdOut().writer();
+        return init(stdout, config);
+    }
 
     pub fn init(w: std.fs.File.Writer, config: ProgressBarConfig) Self {
         return .{
@@ -26,16 +35,18 @@ pub const ProgressBar = struct {
             .l_sep = config.r_sep orelse "|",
             .blocks = config.blocks orelse &[_][]const u8{ " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█" },
             .length = config.length orelse 25,
+            .min = config.min,
+            .max = config.max,
         };
     }
 
-    pub fn displayProgress(self: Self, value: usize, min: usize, max: usize) !void {
-        var v = value;
-        v = if (v > min) v else min;
-        v = if (v < max) v else max;
+    pub fn displayProgress(self: Self, step: usize) !void {
+        var s = step;
+        s = if (s > self.min) s else self.min;
+        s = if (s < self.max) s else self.max;
 
         const n = @intToFloat(f32, self.blocks.len - 1);
-        const p = @intToFloat(f32, v - min + 1) / @intToFloat(f32, max - min + 1);
+        const p = @intToFloat(f32, s - self.min + 1) / @intToFloat(f32, self.max - self.min + 1);
         const l = p * @intToFloat(f32, self.length);
         const x = @floatToInt(u32, @floor(l));
         const y = @floatToInt(u32, @floor(n * (l - @intToFloat(f32, x))));
@@ -60,6 +71,6 @@ pub const ProgressBar = struct {
         // Write percentage
         try self.writer.print(" {d:6.2}%", .{p * 100});
         // Print new line
-        if (value == max) try self.writer.writeByte('\n');
+        if (s == self.max) try self.writer.writeByte('\n');
     }
 };

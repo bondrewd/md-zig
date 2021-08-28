@@ -1,5 +1,6 @@
 const std = @import("std");
 const System = @import("system.zig").System;
+const ProgressBar = @import("progress_bar.zig").ProgressBar;
 const MdInputFileParser = @import("input.zig").MdInputFileParser;
 
 pub fn main() anyerror!void {
@@ -20,10 +21,14 @@ pub fn main() anyerror!void {
     var system = try System.init(allocator, input);
     defer system.deinit();
 
+    // Init progress bar
+    var progress_bar = try ProgressBar.initStdOut(.{ .min = 0, .max = input.n_steps });
+
     // Perform MD
     var istep: usize = 1;
     while (istep <= input.n_steps) : (istep += 1) {
         try system.step();
+        try progress_bar.displayProgress(istep);
     }
 }
 

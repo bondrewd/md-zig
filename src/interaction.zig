@@ -5,20 +5,20 @@ const System = @import("system.zig").System;
 
 pub fn lennardJonesForceInteraction(system: *System) void {
     // Number of atoms
-    const n_atoms = system.atoms.len;
+    const n_atoms = system.r.len;
 
     // Double loop
     var i: usize = 0;
     while (i < n_atoms) : (i += 1) {
-        const ri = system.atoms[i].r;
-        const ei = system.lennard_jones_parameters[i].e;
-        const si = system.lennard_jones_parameters[i].s;
+        const ri = system.r[i];
+        const ei = system.ff.lennard_jones_parameters[i].e;
+        const si = system.ff.lennard_jones_parameters[i].s;
 
         var j: usize = i + 1;
         while (j < n_atoms) : (j += 1) {
-            const rj = system.atoms[j].r;
-            const ej = system.lennard_jones_parameters[j].e;
-            const sj = system.lennard_jones_parameters[j].s;
+            const rj = system.r[j];
+            const ej = system.ff.lennard_jones_parameters[j].e;
+            const sj = system.ff.lennard_jones_parameters[j].s;
 
             const e = std.math.sqrt(ei * ej);
             const s = (si + sj) / 2.0;
@@ -37,8 +37,8 @@ pub fn lennardJonesForceInteraction(system: *System) void {
                 const f = 48.0 * e * (c14 - 0.5 * c8) / s2;
                 const force = vec.scale(rij, f);
 
-                system.atoms[i].f = vec.add(system.atoms[i].f, force);
-                system.atoms[j].f = vec.sub(system.atoms[j].f, force);
+                system.f[i] = vec.add(system.f[i], force);
+                system.f[j] = vec.sub(system.f[j], force);
             }
         }
     }
@@ -46,20 +46,20 @@ pub fn lennardJonesForceInteraction(system: *System) void {
 
 pub fn lennardJonesEnergyInteraction(system: *System) void {
     // Number of atoms
-    const n_atoms = system.atoms.len;
+    const n_atoms = system.r.len;
 
     // Double loop
     var i: usize = 0;
     while (i < n_atoms) : (i += 1) {
-        const ri = system.atoms[i].r;
-        const ei = system.lennard_jones_parameters[i].e;
-        const si = system.lennard_jones_parameters[i].s;
+        const ri = system.r[i];
+        const ei = system.ff.lennard_jones_parameters[i].e;
+        const si = system.ff.lennard_jones_parameters[i].s;
 
         var j: usize = i + 1;
         while (j < n_atoms) : (j += 1) {
-            const rj = system.atoms[j].r;
-            const ej = system.lennard_jones_parameters[j].e;
-            const sj = system.lennard_jones_parameters[j].s;
+            const rj = system.r[j];
+            const ej = system.ff.lennard_jones_parameters[j].e;
+            const sj = system.ff.lennard_jones_parameters[j].s;
 
             const e = std.math.sqrt(ei * ej);
             const s = (si + sj) / 2.0;
@@ -77,7 +77,7 @@ pub fn lennardJonesEnergyInteraction(system: *System) void {
 
                 const energy = 4.0 * e * (c12 - c6);
 
-                system.properties.energy.potential += energy;
+                system.energy.potential += energy;
             }
         }
     }

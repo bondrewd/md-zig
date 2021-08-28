@@ -59,7 +59,6 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
                 try stopWithErrorMsg("Can't open file {s}", .{input_file_name});
                 unreachable;
             };
-            std.debug.print("file: {?}\n", .{f});
 
             // Initialize input parser result
             var parsed_entries: InputFileParserResult = undefined;

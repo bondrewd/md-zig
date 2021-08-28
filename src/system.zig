@@ -1,227 +1,174 @@
 const std = @import("std");
+const vec = @import("vec.zig");
+const Vec = @import("vec.zig").Vec;
+const kb = @import("constant.zig").kb;
+const Real = @import("config.zig").Real;
+const PosFile = @import("file.zig").PosFile;
+const MolFile = @import("file.zig").MolFile;
+const ForceField = @import("ff.zig").ForceField;
+const Integrator = @import("integrator.zig").Integrator;
 const Input = @import("input.zig").MdInputFileParserResult;
 
-//const vec = @import("vec.zig");
-//const Vec = @import("vec.zig").Vec;
-//const Atom = @import("atom.zig").Atom;
-//const Real = @import("config.zig").Real;
-//const PosFile = @import("file.zig").PosFile;
-//const MolFile = @import("file.zig").MolFile;
-//const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
+const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
+const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
+
 //const integratorFromString = @import("integrator.zig").integratorFromString;
-//const LennardJonesParameters = @import("file/mol_file.zig").LennardJonesParameters;
-//const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
-//const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
-//
-//const kb = @import("constant.zig").kb;
 
 pub const System = struct {
+    allocator: *std.mem.Allocator = undefined,
+    rng: std.rand.DefaultPrng = undefined,
+    id: []u64 = undefined,
+    r: []Vec = undefined,
+    v: []Vec = undefined,
+    f: []Vec = undefined,
+    m: []Real = undefined,
+    q: []Real = undefined,
+    ff: ForceField = undefined,
+    temperature: Real = undefined,
+    integrator: Integrator = undefined,
+    energy: struct { kinetic: Real, potential: Real } = undefined,
+
     const Self = @This();
 
     pub fn init(allocator: *std.mem.Allocator, input: Input) !Self {
-        std.debug.print("allocator: {?}\n", .{allocator});
-        std.debug.print("input: {?}\n", .{input});
-        return Self{};
+        // Declare system
+        var system = System{};
+
+        // Set allocator
+        system.allocator = allocator;
+
+        // Parse pos file
+        var pos_file_name = std.mem.trim(u8, input.pos_file, " ");
+        var pos_file = try PosFile.init(allocator, pos_file_name);
+        defer pos_file.deinit();
+
+        // Initialize ids and positions
+        system.id = pos_file.id.toOwnedSlice();
+        system.r = pos_file.pos.toOwnedSlice();
+
+        // Allocate velocity, force, mass, and charge
+        system.v = try allocator.alloc(Vec, system.r.len);
+        system.f = try allocator.alloc(Vec, system.r.len);
+        system.m = try allocator.alloc(Real, system.r.len);
+        system.q = try allocator.alloc(Real, system.r.len);
+
+        // Parse mol file
+        var mol_file_name = std.mem.trim(u8, input.mol_file, " ");
+        var mol_file = try MolFile.init(allocator, mol_file_name);
+        defer mol_file.deinit();
+
+        // Initialize mass and charge
+        system.m = mol_file.mass.toOwnedSlice();
+        system.q = mol_file.charge.toOwnedSlice();
+
+        // Initialize force field
+        var force_interactions = std.ArrayList(fn (*Self) void).init(allocator);
+        defer force_interactions.deinit();
+        var energy_interactions = std.ArrayList(fn (*Self) void).init(allocator);
+        defer energy_interactions.deinit();
+
+        if (mol_file.lennard_jones_parameters.items.len > 0) {
+            system.ff.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
+            try force_interactions.append(lennardJonesForceInteraction);
+            try energy_interactions.append(lennardJonesEnergyInteraction);
+        }
+
+        system.ff.force_interactions = force_interactions.toOwnedSlice();
+        system.ff.energy_interactions = energy_interactions.toOwnedSlice();
+
+        // Set rng
+        var seed = if (input.rng_seed > 0) input.rng_seed else blk: {
+            var s: u64 = undefined;
+            try std.os.getrandom(std.mem.asBytes(&s));
+            break :blk s;
+        };
+        system.rng = std.rand.DefaultPrng.init(seed);
+
+        // Initialize velocities
+        system.initVelocities(input.temperature);
+
+        // Initialize forces
+        system.calculateForceInteractions();
+
+        // Initialize energies
+        system.calculateEnergyInteractions();
+        system.calculateKineticEnergy();
+
+        // Initialize integrator
+        system.integrator = try Integrator.init(input);
+
+        // Initialize reporter
+
+        return system;
     }
 
-    pub fn deinit(_: Self) void {
-        //self.allocator.free(self.atoms);
-        //self.allocator.free(self.interactions);
-        //self.allocator.free(self.atom_properties);
-        //self.allocator.free(self.lennard_jones_parameters);
+    pub fn deinit(self: Self) void {
+        self.allocator.free(self.id);
+        self.allocator.free(self.r);
+        self.allocator.free(self.v);
+        self.allocator.free(self.f);
+        self.allocator.free(self.m);
+        self.allocator.free(self.q);
+        self.allocator.free(self.ff.force_interactions);
+        self.allocator.free(self.ff.energy_interactions);
     }
 
-    pub fn step(_: *Self) !void {}
+    pub fn initVelocities(self: *Self, temperature: Real) void {
+        // Get rng
+        const rng = &self.rng.random;
 
-    //    allocator: *std.mem.Allocator = undefined,
-    //    integrator: fn (*Self) void = undefined,
-    //    time_step: Real = undefined,
-    //    random: Random = undefined,
-    //    region: Vec = Vec{},
-    //    atoms: []Atom = undefined,
-    //    lennard_jones_parameters: []LennardJonesParameters = undefined,
-    //    properties: SystemProperties = undefined,
-    //    force_interactions: []fn (*Self) void = undefined,
-    //    energy_interactions: []fn (*Self) void = undefined,
-    //
-    //    const Energy = struct {
-    //        kinetic: Real = 0,
-    //        potential: Real = 0,
-    //        total: Real = 0,
-    //    };
-    //
-    //    const SystemProperties = struct {
-    //        energy: Energy = Energy{},
-    //        temperature: Real = 0,
-    //    };
-    //
-    //    const Random = struct {
-    //        seed: u64,
-    //        rng: std.rand.DefaultPrng,
-    //    };
+        // Initialize with random velocities
+        var i: usize = 0;
+        while (i < self.v.len) : (i += 1) {
 
-    //    pub const SystemConfiguration = struct {
-    //        allocator: *std.mem.Allocator,
-    //        integrator: []const u8,
-    //        time_step: Real,
-    //        rng_seed: u64,
-    //    };
+            // Sigma
+            const s = std.math.sqrt(kb * temperature / self.m[i]);
 
-    //    pub fn init(config: SystemConfiguration) !Self {
-    //        var system = System{};
-    //
-    //        // Set allocator
-    //        system.allocator = config.allocator;
-    //
-    //        // Set integrator function
-    //        system.integrator = try integratorFromString(config.integrator);
-    //
-    //        // Set time step
-    //        system.time_step = config.time_step;
-    //
-    //        // Set rng
-    //        const rng_seed = if (config.rng_seed > 0) config.rng_seed else blk: {
-    //            var seed: u64 = undefined;
-    //            try std.os.getrandom(std.mem.asBytes(&seed));
-    //            break :blk seed;
-    //        };
-    //        system.random = Random{
-    //            .seed = rng_seed,
-    //            .rng = std.rand.DefaultPrng.init(rng_seed),
-    //        };
-    //
-    //        return system;
-    //    }
+            // Alpha
+            const a = Vec{
+                .x = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+                .y = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+                .z = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+            };
 
-    //    pub fn initPositionsFromPosFile(self: *Self, file_name: []const u8) !void {
-    //        const pos_file = try PosFile(.{}).init(self.allocator, file_name);
-    //        defer pos_file.deinit();
-    //
-    //        self.atoms = try self.allocator.alloc(Atom, pos_file.len);
-    //        for (self.atoms) |*atom, i| {
-    //            atom.r.x = pos_file.pos[i].x;
-    //            atom.r.y = pos_file.pos[i].y;
-    //            atom.r.z = pos_file.pos[i].z;
-    //            atom.id = pos_file.id[i];
-    //        }
-    //    }
-    //
-    //    pub fn initPositions(self: *Self, file_name: []const u8) !void {
-    //        // Trim string
-    //        const file_name_trim = std.mem.trim(u8, file_name, " ");
-    //
-    //        // Find extension
-    //        var tokens = std.mem.tokenize(u8, file_name_trim, ".");
-    //        var ext: ?[]const u8 = null;
-    //        while (tokens.rest().len != 0) ext = tokens.next();
-    //
-    //        // Parse extension
-    //        if (ext) |e| {
-    //            if (std.mem.eql(u8, e, "pos")) {
-    //                try self.initPositionsFromPosFile(file_name_trim);
-    //            } else {
-    //                try stopWithErrorMsg("Unknown position file extension -> {s}", .{e});
-    //            }
-    //        } else {
-    //            try stopWithErrorMsg("Can't infer file type from extension -> {s}", .{file_name_trim});
-    //        }
-    //    }
-    //
-    //    pub fn initVelocities(self: *Self, temperature: Real) void {
-    //        // Get rng
-    //        const rand = &self.random.rng.random;
-    //
-    //        // Initialize with random velocities
-    //        for (self.atoms) |*atom| {
-    //            // Sigma
-    //            const s = std.math.sqrt(kb * temperature / atom.m);
-    //
-    //            // Alpha
-    //            const a = Vec{
-    //                .x = std.math.sqrt(-2.0 * std.math.ln(rand.float(Real))),
-    //                .y = std.math.sqrt(-2.0 * std.math.ln(rand.float(Real))),
-    //                .z = std.math.sqrt(-2.0 * std.math.ln(rand.float(Real))),
-    //            };
-    //
-    //            // Beta
-    //            const b = Vec{
-    //                .x = @cos(2.0 * std.math.pi * rand.float(Real)),
-    //                .y = @cos(2.0 * std.math.pi * rand.float(Real)),
-    //                .z = @cos(2.0 * std.math.pi * rand.float(Real)),
-    //            };
-    //
-    //            // Assign random velocity
-    //            atom.v = vec.scale(vec.mul(a, b), s);
-    //        }
-    //    }
-    //
-    //    pub fn initForceFieldFromMolFile(self: *Self, file_name: []const u8) !void {
-    //        var mol_file = try MolFile(.{}).init(self.allocator, file_name);
-    //        defer mol_file.deinit();
-    //
-    //        var force_interactions = std.ArrayList(fn (*Self) void).init(self.allocator);
-    //        var energy_interactions = std.ArrayList(fn (*Self) void).init(self.allocator);
-    //
-    //        if (mol_file.lennard_jones_parameters.items.len > 0) {
-    //            try force_interactions.append(lennardJonesForceInteraction);
-    //            try energy_interactions.append(lennardJonesEnergyInteraction);
-    //        }
-    //        self.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
-    //
-    //        self.force_interactions = force_interactions.toOwnedSlice();
-    //        self.energy_interactions = energy_interactions.toOwnedSlice();
-    //
-    //        for (mol_file.atom_properties.items) |prop, i| {
-    //            self.atoms[i].m = prop.mass;
-    //            self.atoms[i].q = prop.charge;
-    //        }
-    //    }
-    //
-    //    pub fn initForceField(self: *Self, file_name: []const u8) !void {
-    //        // Trim string
-    //        const file_name_trim = std.mem.trim(u8, file_name, " ");
-    //
-    //        // Find extension
-    //        var tokens = std.mem.tokenize(u8, file_name_trim, ".");
-    //        var ext: ?[]const u8 = null;
-    //        while (tokens.rest().len != 0) ext = tokens.next();
-    //
-    //        // Parse extension
-    //        if (ext) |e| {
-    //            if (std.mem.eql(u8, e, "mol")) {
-    //                try self.initForceFieldFromMolFile(file_name_trim);
-    //            } else {
-    //                try stopWithErrorMsg("Unknown molecular file extension -> {s}", .{e});
-    //            }
-    //        } else {
-    //            try stopWithErrorMsg("Can't infer file type from extension -> {s}", .{file_name_trim});
-    //        }
-    //    }
-    //
-    //    pub fn updateForces(self: *Self) void {
-    //        for (self.force_interactions) |interaction| interaction(self);
-    //    }
-    //
-    //    pub fn integrate(self: *Self) void {
-    //        self.integrator(self);
-    //    }
-    //
-    //    pub fn updateKineticEnergy(self: *Self) void {
-    //        var kinetic: Real = 0.0;
-    //        for (self.atoms) |atom| {
-    //            kinetic += vec.dot(atom.v, atom.v);
-    //        }
-    //
-    //        self.properties.energy.kinetic = 0.5 * kinetic;
-    //    }
-    //
-    //    pub fn updatePotentialEnergy(self: *Self) void {
-    //        for (self.energy_interactions) |interaction| interaction(self);
-    //    }
-    //
-    //    pub fn updateEnergy(self: *Self) void {
-    //        self.updateKineticEnergy();
-    //        self.updatePotentialEnergy();
-    //        self.properties.energy.total = self.properties.energy.kinetic + self.properties.energy.potential;
-    //    }
+            // Beta
+            const b = Vec{
+                .x = @cos(2.0 * std.math.pi * rng.float(Real)),
+                .y = @cos(2.0 * std.math.pi * rng.float(Real)),
+                .z = @cos(2.0 * std.math.pi * rng.float(Real)),
+            };
+
+            // Assign random velocity
+            self.v[i] = vec.scale(vec.mul(a, b), s);
+        }
+    }
+
+    pub fn calculateForceInteractions(self: *Self) void {
+        for (self.ff.force_interactions) |f| f(self);
+    }
+
+    pub fn calculateEnergyInteractions(self: *Self) void {
+        self.energy.potential = 0;
+        for (self.ff.energy_interactions) |f| f(self);
+    }
+
+    pub fn calculateKineticEnergy(self: *Self) void {
+        var energy: Real = 0.0;
+
+        var i: usize = 0;
+        while (i < self.v.len) : (i += 1) {
+            energy += self.m[i] * vec.dot(self.v[i], self.v[i]);
+        }
+
+        self.energy.kinetic = 0.5 * energy;
+    }
+
+    pub fn calculateTemperature(self: *Self) void {
+        self.calculateKineticEnergy();
+        self.temperature = 2.0 * self.energy.kinetic / (3.0 * self.r.len * kb);
+    }
+
+    pub fn step(self: *Self) !void {
+        self.integrator.evolveSystem(self);
+    }
 };

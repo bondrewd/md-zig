@@ -1,37 +1,59 @@
 const std = @import("std");
 const vec = @import("vec.zig");
+const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
+const Input = @import("input.zig").MdInputFileParserResult;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
+
+pub const Integrator = struct {
+    dt: Real = undefined,
+    evolveSystem: fn (*System) void = undefined,
+
+    const Self = @This();
+
+    pub fn init(input: Input) !Self {
+        // Declare integrator
+        var integrator = Integrator{};
+
+        // Set time step
+        integrator.dt = input.time_step;
+
+        // Get integrator name
+        const name = std.mem.trim(u8, input.integrator, " ");
+
+        // Parse integrator name
+        if (std.mem.eql(u8, "LEAP", name)) {
+            integrator.evolveSystem = leapFrog;
+        } else {
+            try stopWithErrorMsg("Unknown integrator -> {s}", .{name});
+            unreachable;
+        }
+
+        return integrator;
+    }
+};
 
 pub fn leapFrog(system: *System) void {
     // Time step
-    const dt = system.time_step;
+    const dt = system.integrator.dt;
 
     // First part
-    for (system.atoms) |*atom| {
+    var i: usize = 0;
+    while (i < system.r.len) : (i += 1) {
         // v(t + dt/2) = v(t) + f(t) * dt/2m
-        atom.v = vec.add(atom.v, vec.scale(atom.f, 0.5 * dt / atom.m));
+        system.v[i] = vec.add(system.v[i], vec.scale(system.f[i], 0.5 * dt / system.m[i]));
         // x(t + dt) = x(t) + v(t + dt/2) * dt
-        atom.r = vec.add(atom.r, vec.scale(atom.v, dt));
+        system.r[i] = vec.add(system.r[i], vec.scale(system.v[i], dt));
     }
 
     // Update forces
     // f(t + dt) = -dU(t + dt)/dt
-    system.updateForces();
+    system.calculateForceInteractions();
 
     // Second part
-    for (system.atoms) |*atom| {
+    i = 0;
+    while (i < system.r.len) : (i += 1) {
         // v(t + dt) = v(t + dt/2) + f(t + dt) * dt/2m
-        atom.v = vec.add(atom.v, vec.scale(atom.f, 0.5 * dt / atom.m));
-    }
-}
-
-pub fn integratorFromString(integrator_str: []const u8) !fn (*System) void {
-    const integrator = std.mem.trim(u8, integrator_str, " ");
-    if (std.mem.eql(u8, "LEAP", integrator)) {
-        return leapFrog;
-    } else {
-        try stopWithErrorMsg("Unknown integrator -> {s}", .{integrator});
-        unreachable;
+        system.v[i] = vec.add(system.v[i], vec.scale(system.f[i], 0.5 * dt / system.m[i]));
     }
 }

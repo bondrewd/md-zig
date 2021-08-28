@@ -1,160 +1,139 @@
 const std = @import("std");
 const Real = @import("../config.zig").Real;
+const LennardJonesParameters = @import("../ff.zig").LennardJonesParameters;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
-pub const LennardJonesParameters = struct {
-    id: u64 = undefined,
-    e: Real = undefined,
-    s: Real = undefined,
-};
+pub const MolFile = struct {
+    allocator: *std.mem.Allocator,
+    id: std.ArrayList(u64),
+    mass: std.ArrayList(Real),
+    charge: std.ArrayList(Real),
+    lennard_jones_parameters: std.ArrayList(LennardJonesParameters),
 
-pub const AtomProperty = struct {
-    id: u64 = undefined,
-    mass: Real = undefined,
-    charge: Real = undefined,
-};
+    const Self = @This();
 
-pub const MolFileParserConfiguration = struct {
-    line_buffer_size: usize = 1024,
-    section_opening: []const u8 = "[",
-    section_closing: []const u8 = "]",
-    comment_character: []const u8 = "#",
-};
+    pub fn init(allocator: *std.mem.Allocator, file_name: []const u8) !Self {
+        // Open pos file
+        var file = try std.fs.cwd().openFile(file_name, .{ .read = true });
 
-pub fn MolFile(comptime config: MolFileParserConfiguration) type {
-    return struct {
-        allocator: *std.mem.Allocator,
-        lennard_jones_parameters: std.ArrayList(LennardJonesParameters),
-        atom_properties: std.ArrayList(AtomProperty),
+        // Init MolFile
+        var mol_file = Self{
+            .allocator = allocator,
+            .id = std.ArrayList(u64).init(allocator),
+            .mass = std.ArrayList(Real).init(allocator),
+            .charge = std.ArrayList(Real).init(allocator),
+            .lennard_jones_parameters = std.ArrayList(LennardJonesParameters).init(allocator),
+        };
 
-        const Self = @This();
+        // Got the first line
+        try file.seekTo(0);
 
-        pub fn initFile(allocator: *std.mem.Allocator, file: std.fs.File) !Self {
-            // Init MolFile
-            var mol_file = Self{
-                .allocator = allocator,
-                .lennard_jones_parameters = std.ArrayList(LennardJonesParameters).init(allocator),
-                .atom_properties = std.ArrayList(AtomProperty).init(allocator),
-            };
+        // Get reader
+        var r = file.reader();
 
-            // Got the first line
-            try file.seekTo(0);
+        // Declare buffer
+        var buf: [1024]u8 = undefined;
 
-            // Get reader
-            var r = file.reader();
+        // Section name
+        var current_section: [1024]u8 = undefined;
 
-            // Declare buffer
-            var buf: [config.line_buffer_size]u8 = undefined;
+        // Iterate over lines
+        var line_id: usize = 0;
+        while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
+            // Update line number
+            line_id += 1;
 
-            // Section name
-            var current_section: [config.line_buffer_size]u8 = undefined;
+            // Skip comments
+            if (std.mem.startsWith(u8, line, "#")) continue;
 
-            // Iterate over lines
-            var line_id: usize = 0;
-            while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-                // Update line number
-                line_id += 1;
+            // Skip empty lines
+            if (std.mem.trim(u8, line, " ").len == 0) continue;
 
-                // Skip comments
-                if (std.mem.startsWith(u8, line, config.comment_character)) continue;
-
-                // Skip empty lines
-                if (std.mem.trim(u8, line, " ").len == 0) continue;
-
-                // Check for section
-                if (std.mem.startsWith(u8, line, config.section_opening)) {
-                    const closing_symbol = std.mem.indexOf(u8, line, config.section_closing);
-                    if (closing_symbol) |index| {
-                        std.mem.set(u8, &current_section, ' ');
-                        std.mem.copy(u8, &current_section, line[1..index]);
-                        continue;
-                    } else {
-                        try stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
-                    }
-                }
-                const current_section_trim = std.mem.trim(u8, &current_section, " ");
-
-                // Parse line
-                var tokens = std.mem.tokenize(u8, line, " ");
-                if (std.mem.eql(u8, current_section_trim, "LENNARD-JONES")) {
-                    // Parse index
-                    const id = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
-                        try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-                        unreachable;
-                    } else {
-                        try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-                        unreachable;
-                    };
-
-                    const e = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                        try stopWithErrorMsg("Bad epsilon value {s} in line {s}", .{ token, line });
-                        unreachable;
-                    } else {
-                        try stopWithErrorMsg("Missing epsilon value at line #{d} -> {s}", .{ line_id, line });
-                        unreachable;
-                    };
-
-                    const s = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                        try stopWithErrorMsg("Bad sigma value {s} in line {s}", .{ token, line });
-                        unreachable;
-                    } else {
-                        try stopWithErrorMsg("Missing sigma value at line #{d} -> {s}", .{ line_id, line });
-                        unreachable;
-                    };
-
-                    try mol_file.lennard_jones_parameters.append(LennardJonesParameters{
-                        .id = id,
-                        .e = e,
-                        .s = s,
-                    });
-                } else if (std.mem.eql(u8, current_section_trim, "PROPERTIES")) {
-                    // Parse index
-                    const id = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
-                        try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-                        unreachable;
-                    } else {
-                        try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-                        unreachable;
-                    };
-
-                    const m = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                        try stopWithErrorMsg("Bad mass value {s} in line {s}", .{ token, line });
-                        unreachable;
-                    } else {
-                        try stopWithErrorMsg("Missing mass value at line #{d} -> {s}", .{ line_id, line });
-                        unreachable;
-                    };
-
-                    const q = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                        try stopWithErrorMsg("Bad charge value {s} in line {s}", .{ token, line });
-                        unreachable;
-                    } else {
-                        try stopWithErrorMsg("Missing charge value at line #{d} -> {s}", .{ line_id, line });
-                        unreachable;
-                    };
-
-                    try mol_file.atom_properties.append(AtomProperty{
-                        .id = id,
-                        .mass = m,
-                        .charge = q,
-                    });
+            // Check for section
+            if (std.mem.startsWith(u8, line, "[")) {
+                const closing_symbol = std.mem.indexOf(u8, line, "]");
+                if (closing_symbol) |index| {
+                    std.mem.set(u8, &current_section, ' ');
+                    std.mem.copy(u8, &current_section, line[1..index]);
+                    continue;
+                } else {
+                    try stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
                 }
             }
+            const current_section_trim = std.mem.trim(u8, &current_section, " ");
 
-            return mol_file;
+            // Parse line
+            var tokens = std.mem.tokenize(u8, line, " ");
+            if (std.mem.eql(u8, current_section_trim, "LENNARD-JONES")) {
+                // Parse index
+                const id = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+                    try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                const e = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    try stopWithErrorMsg("Bad epsilon value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    try stopWithErrorMsg("Missing epsilon value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                const s = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    try stopWithErrorMsg("Bad sigma value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    try stopWithErrorMsg("Missing sigma value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                try mol_file.lennard_jones_parameters.append(LennardJonesParameters{
+                    .id = id,
+                    .e = e,
+                    .s = s,
+                });
+            } else if (std.mem.eql(u8, current_section_trim, "PROPERTIES")) {
+                // Parse index
+                const id = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+                    try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                const m = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    try stopWithErrorMsg("Bad mass value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    try stopWithErrorMsg("Missing mass value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                const q = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    try stopWithErrorMsg("Bad charge value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    try stopWithErrorMsg("Missing charge value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                try mol_file.id.append(id);
+                try mol_file.mass.append(m);
+                try mol_file.charge.append(q);
+            }
         }
 
-        pub fn init(allocator: *std.mem.Allocator, file_name: []const u8) !Self {
-            // Open pos file
-            var f = try std.fs.cwd().openFile(file_name, .{ .read = true });
+        return mol_file;
+    }
 
-            // Parse file
-            return try initFile(allocator, f);
-        }
-
-        pub fn deinit(self: Self) void {
-            self.lennard_jones_parameters.deinit();
-            self.atom_properties.deinit();
-        }
-    };
-}
+    pub fn deinit(self: Self) void {
+        self.id.deinit();
+        self.mass.deinit();
+        self.charge.deinit();
+        self.lennard_jones_parameters.deinit();
+    }
+};
