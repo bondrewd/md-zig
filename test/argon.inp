@@ -5,6 +5,7 @@ pos_file      = ./test/argon.pos  # Position file
 
 [OUTPUT]
 out_ts_step   = 10                # Save time series every 10 steps
+out_xyz_step  = 10                # Save coordinates every 10 steps
  
 [DYNAMICS]
 integrator    = LEAP              # [LEAP,VVER]

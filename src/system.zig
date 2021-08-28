@@ -3,7 +3,8 @@ const vec = @import("vec.zig");
 const Vec = @import("vec.zig").Vec;
 const kb = @import("constant.zig").kb;
 const Real = @import("config.zig").Real;
-const TsFile = @import("file/ts_file.zig").TsFile;
+const TsFile = @import("file.zig").TsFile;
+const XyzFile = @import("file.zig").XyzFile;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
 const ForceField = @import("ff.zig").ForceField;
@@ -27,8 +28,11 @@ pub const System = struct {
     integrator: Integrator = undefined,
     energy: struct { kinetic: Real, potential: Real } = undefined,
     current_step: u64 = undefined,
+
     ts_file: TsFile = undefined,
     ts_file_out: u64 = undefined,
+    xyz_file: XyzFile = undefined,
+    xyz_file_out: u64 = undefined,
 
     const Self = @This();
 
@@ -102,9 +106,12 @@ pub const System = struct {
         // Initialize integrator
         system.integrator = try Integrator.init(input);
 
-        // Initialize time series file
+        // Initialize files
         system.ts_file = try TsFile.init(input);
         system.ts_file_out = input.out_ts_step;
+
+        system.xyz_file = try XyzFile.init(input);
+        system.xyz_file_out = input.out_xyz_step;
 
         return system;
     }
@@ -187,6 +194,10 @@ pub const System = struct {
             self.calculateTemperature();
             // Report properties
             try self.ts_file.printDataLine(self);
+        }
+
+        if (self.current_step % self.xyz_file_out == 0) {
+            try self.xyz_file.printDataFrame(self);
         }
     }
 };

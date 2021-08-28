@@ -214,6 +214,18 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .default_value = .{ .int = 0 },
     },
     .{
+        .name = "out_xyz_name",
+        .entry_type = []u8,
+        .section = "OUTPUT",
+        .default_value = .{ .string = "out.xyz" },
+    },
+    .{
+        .name = "out_xyz_step",
+        .entry_type = u64,
+        .section = "OUTPUT",
+        .default_value = .{ .int = 0 },
+    },
+    .{
         .name = "integrator",
         .entry_type = []u8,
         .section = "DYNAMICS",
