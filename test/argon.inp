@@ -18,5 +18,5 @@ temperature   = 298               # Temperature (K)
 [BOUNDARY]
 boundary_type = PBC               # [NOBC,PBC]
 region_size_x = 3.5               # region size (x) in [PBC]
-region_size_y = 3.5               # region size (x) in [PBC]
-region_size_z = 3.5               # region size (x) in [PBC]
+region_size_y = 3.5               # region size (y) in [PBC]
+region_size_z = 3.5               # region size (z) in [PBC]
