@@ -256,6 +256,11 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .section = "DYNAMICS",
     },
     .{
+        .name = "neighbor_list_step",
+        .entry_type = u64,
+        .section = "DYNAMICS",
+    },
+    .{
         .name = "boundary_type",
         .entry_type = []u8,
         .section = "BOUNDARY",

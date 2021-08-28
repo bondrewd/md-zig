@@ -10,6 +10,7 @@ const MolFile = @import("file.zig").MolFile;
 const ForceField = @import("ff.zig").ForceField;
 const Integrator = @import("integrator.zig").Integrator;
 const Input = @import("input.zig").MdInputFileParserResult;
+const NeighborList = @import("neighbor_list.zig").NeighborList;
 
 const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
 const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
@@ -30,6 +31,8 @@ pub const System = struct {
     current_step: u64 = undefined,
     region: Vec = undefined,
     use_pbc: bool = undefined,
+    neighbor_list: NeighborList = undefined,
+    neighbor_list_update_step: u64 = undefined,
 
     ts_file: TsFile = undefined,
     ts_file_out: u64 = undefined,
@@ -92,10 +95,19 @@ pub const System = struct {
             system.ff.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
             try force_interactions.append(lennardJonesForceInteraction);
             try energy_interactions.append(lennardJonesEnergyInteraction);
+            for (system.ff.lennard_jones_parameters) |para| {
+                const cutoff = 2.0 * 2.5 * para.s;
+                if (system.ff.max_cutoff < cutoff) system.ff.max_cutoff = cutoff;
+            }
         }
 
         system.ff.force_interactions = force_interactions.toOwnedSlice();
         system.ff.energy_interactions = energy_interactions.toOwnedSlice();
+
+        // Initialize neighbor list
+        system.neighbor_list = NeighborList.init(allocator, system.ff.max_cutoff);
+        system.neighbor_list_update_step = input.neighbor_list_step;
+        try system.neighbor_list.update(&system);
 
         // Set rng
         var seed = if (input.rng_seed > 0) input.rng_seed else blk: {
@@ -137,6 +149,7 @@ pub const System = struct {
         self.allocator.free(self.q);
         self.allocator.free(self.ff.force_interactions);
         self.allocator.free(self.ff.energy_interactions);
+        self.allocator.free(self.neighbor_list.pairs);
     }
 
     pub fn initVelocities(self: *Self, temperature: Real) void {
@@ -206,6 +219,12 @@ pub const System = struct {
     }
 
     pub fn step(self: *Self) !void {
+        // Update neighbor list
+        if (self.current_step % self.neighbor_list_update_step == 0) {
+            self.neighbor_list.deinit();
+            try self.neighbor_list.update(self);
+        }
+
         // Integrate equations of motion
         self.integrator.evolveSystem(self);
 

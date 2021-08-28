@@ -1,22 +1,23 @@
 [INPUT]
-mol_file      = ./test/argon.mol  # Molecule file
-grp_file      = ./test/argon.grp  # Group file
-pos_file      = ./test/argon.pos  # Position file
+mol_file           = ./test/argon.mol  # Molecule file
+grp_file           = ./test/argon.grp  # Group file
+pos_file           = ./test/argon.pos  # Position file
 
 [OUTPUT]
-out_ts_step   = 100               # Save time series every 10 steps
-out_xyz_step  = 100               # Save coordinates every 10 steps
+out_ts_step        = 100               # Save time series every 10 steps
+out_xyz_step       = 100               # Save coordinates every 10 steps
  
 [DYNAMICS]
-integrator    = LEAP              # [LEAP,VVER]
-n_steps       = 100000            # number of MD steps
-time_step     = 0.001             # timestep (ps)
-ensemble      = NVE               # [NVE]
-rng_seed      = 0                 # If zero it is automatically generated
-temperature   = 298               # Temperature (K)
+integrator         = LEAP              # [LEAP,VVER]
+n_steps            = 100000            # number of MD steps
+time_step          = 0.001             # timestep (ps)
+ensemble           = NVE               # [NVE]
+rng_seed           = 0                 # If zero it is automatically generated
+temperature        = 298               # Temperature (K)
+neighbor_list_step = 20                # Steps before updating neighbor list
  
 [BOUNDARY]
-boundary_type = PBC               # [NOBC,PBC]
-region_x      = 6.0               # region size (x) in nm for [PBC]
-region_y      = 6.0               # region size (y) in nm for [PBC]
-region_z      = 6.0               # region size (z) in nm for [PBC]
+boundary_type      = PBC               # [NOBC,PBC]
+region_x           = 10.0              # region size (x) in nm for [PBC]
+region_y           = 10.0              # region size (y) in nm for [PBC]
+region_z           = 10.0              # region size (z) in nm for [PBC]
