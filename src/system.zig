@@ -7,6 +7,7 @@ const TsFile = @import("file.zig").TsFile;
 const XyzFile = @import("file.zig").XyzFile;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
+const VelFile = @import("file.zig").VelFile;
 const ForceField = @import("ff.zig").ForceField;
 const Integrator = @import("integrator.zig").Integrator;
 const Input = @import("input.zig").MdInputFileParserResult;
@@ -38,6 +39,8 @@ pub const System = struct {
     ts_file_out: u64 = undefined,
     xyz_file: XyzFile = undefined,
     xyz_file_out: u64 = undefined,
+    vel_file: VelFile = undefined,
+    vel_file_out: u64 = undefined,
 
     const Self = @This();
 
@@ -145,21 +148,35 @@ pub const System = struct {
         system.integrator = try Integrator.init(input);
 
         // TS output file
-        var ts_file_name = std.mem.trim(u8, input.out_ts_file, " ");
-        var ts_file = TsFile.init(allocator);
-        try ts_file.createFile(ts_file_name, .{});
-        try ts_file.printDataHeader();
-        try ts_file.printDataFromSystem(&system);
-        system.ts_file = ts_file;
-        system.ts_file_out = input.out_ts_step;
+        if (input.out_ts_step > 0) {
+            var ts_file_name = std.mem.trim(u8, input.out_ts_file, " ");
+            var ts_file = TsFile.init(allocator);
+            try ts_file.createFile(ts_file_name, .{});
+            try ts_file.printDataHeader();
+            try ts_file.printDataFromSystem(&system);
+            system.ts_file = ts_file;
+            system.ts_file_out = input.out_ts_step;
+        }
 
         // XYZ output file
-        var xyz_file_name = std.mem.trim(u8, input.out_xyz_file, " ");
-        var xyz_file = XyzFile.init(allocator);
-        try xyz_file.createFile(xyz_file_name, .{});
-        try xyz_file.printDataFromSystem(&system);
-        system.xyz_file = xyz_file;
-        system.xyz_file_out = input.out_xyz_step;
+        if (input.out_xyz_step > 0) {
+            var xyz_file_name = std.mem.trim(u8, input.out_xyz_file, " ");
+            var xyz_file = XyzFile.init(allocator);
+            try xyz_file.createFile(xyz_file_name, .{});
+            try xyz_file.printDataFromSystem(&system);
+            system.xyz_file = xyz_file;
+            system.xyz_file_out = input.out_xyz_step;
+        }
+
+        // Vel output file
+        if (input.out_vel_step > 0) {
+            var vel_file_name = std.mem.trim(u8, input.out_vel_file, " ");
+            var vel_file = VelFile.init(allocator);
+            try vel_file.createFile(vel_file_name, .{});
+            try vel_file.printDataFromSystem(&system);
+            system.vel_file = vel_file;
+            system.vel_file_out = input.out_vel_step;
+        }
 
         return system;
     }
@@ -279,7 +296,7 @@ pub const System = struct {
         self.wrap();
 
         // Write ts file
-        if (self.current_step % self.ts_file_out == 0) {
+        if (self.ts_file_out > 0 and self.current_step % self.ts_file_out == 0) {
             // Calculate properties
             self.calculateEnergyInteractions();
             self.calculateKineticEnergy();
@@ -289,8 +306,13 @@ pub const System = struct {
         }
 
         // Write xyz file
-        if (self.current_step % self.xyz_file_out == 0) {
+        if (self.xyz_file_out > 0 and self.current_step % self.xyz_file_out == 0) {
             try self.xyz_file.printDataFromSystem(self);
+        }
+
+        // Write vel file
+        if (self.vel_file_out > 0 and self.current_step % self.vel_file_out == 0) {
+            try self.vel_file.printDataFromSystem(self);
         }
     }
 };

@@ -221,6 +221,18 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .default_value = .{ .int = 0 },
     },
     .{
+        .name = "out_vel_file",
+        .entry_type = []u8,
+        .section = "OUTPUT",
+        .default_value = .{ .string = "out.vel" },
+    },
+    .{
+        .name = "out_vel_step",
+        .entry_type = u64,
+        .section = "OUTPUT",
+        .default_value = .{ .int = 0 },
+    },
+    .{
         .name = "integrator",
         .entry_type = []u8,
         .section = "DYNAMICS",

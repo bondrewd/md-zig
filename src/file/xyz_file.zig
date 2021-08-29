@@ -1,7 +1,6 @@
 const std = @import("std");
 const Real = @import("../config.zig").Real;
 const System = @import("../system.zig").System;
-const Input = @import("../input.zig").MdInputFileParserResult;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
 const XyzFileData = struct {
