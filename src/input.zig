@@ -197,7 +197,7 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .section = "INPUT",
     },
     .{
-        .name = "out_ts_name",
+        .name = "out_ts_file",
         .entry_type = []u8,
         .section = "OUTPUT",
         .default_value = .{ .string = "out.ts" },
@@ -209,7 +209,7 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .default_value = .{ .int = 0 },
     },
     .{
-        .name = "out_xyz_name",
+        .name = "out_xyz_file",
         .entry_type = []u8,
         .section = "OUTPUT",
         .default_value = .{ .string = "out.xyz" },

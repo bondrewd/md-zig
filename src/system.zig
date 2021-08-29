@@ -63,12 +63,14 @@ pub const System = struct {
 
         // Parse pos file
         var pos_file_name = std.mem.trim(u8, input.in_pos_file, " ");
-        var pos_file = try PosFile.init(allocator, pos_file_name);
+        var pos_file = PosFile.init(allocator);
         defer pos_file.deinit();
+        try pos_file.openFile(pos_file_name, .{});
+        try pos_file.load();
 
         // Initialize ids and positions
-        system.id = pos_file.id.toOwnedSlice();
-        system.r = pos_file.pos.toOwnedSlice();
+        system.id = pos_file.data.id.toOwnedSlice();
+        system.r = pos_file.data.pos.toOwnedSlice();
 
         // Wrap system
         system.wrap();
@@ -81,12 +83,14 @@ pub const System = struct {
 
         // Parse mol file
         var mol_file_name = std.mem.trim(u8, input.in_mol_file, " ");
-        var mol_file = try MolFile.init(allocator, mol_file_name);
+        var mol_file = MolFile.init(allocator);
         defer mol_file.deinit();
+        try mol_file.openFile(mol_file_name, .{});
+        try mol_file.load();
 
         // Initialize mass and charge
-        system.m = mol_file.mass.toOwnedSlice();
-        system.q = mol_file.charge.toOwnedSlice();
+        system.m = mol_file.data.mass.toOwnedSlice();
+        system.q = mol_file.data.charge.toOwnedSlice();
 
         // Initialize force field
         var force_interactions = std.ArrayList(fn (*Self) void).init(allocator);
@@ -97,8 +101,8 @@ pub const System = struct {
         var neighbor_list_cutoff: Real = 0.0;
 
         // --> Lennard-Jones interaction
-        if (mol_file.lennard_jones_parameters.items.len > 0) {
-            system.ff.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
+        if (mol_file.data.lj_parameters.items.len > 0) {
+            system.ff.lennard_jones_parameters = mol_file.data.lj_parameters.toOwnedSlice();
             try force_interactions.append(lennardJonesForceInteraction);
             try energy_interactions.append(lennardJonesEnergyInteraction);
             // Cutoff for neighbor list
@@ -140,14 +144,22 @@ pub const System = struct {
         // Initialize integrator
         system.integrator = try Integrator.init(input);
 
-        // Initialize files
-        system.ts_file = try TsFile.init(input);
+        // TS output file
+        var ts_file_name = std.mem.trim(u8, input.out_ts_file, " ");
+        var ts_file = TsFile.init(allocator);
+        try ts_file.createFile(ts_file_name, .{});
+        try ts_file.printDataHeader();
+        try ts_file.printDataFromSystem(&system);
+        system.ts_file = ts_file;
         system.ts_file_out = input.out_ts_step;
-        try system.ts_file.printDataLine(&system);
 
-        system.xyz_file = try XyzFile.init(input);
+        // XYZ output file
+        var xyz_file_name = std.mem.trim(u8, input.out_xyz_file, " ");
+        var xyz_file = XyzFile.init(allocator);
+        try xyz_file.createFile(xyz_file_name, .{});
+        try xyz_file.printDataFromSystem(&system);
+        system.xyz_file = xyz_file;
         system.xyz_file_out = input.out_xyz_step;
-        try system.xyz_file.printDataFrame(&system);
 
         return system;
     }
@@ -162,6 +174,7 @@ pub const System = struct {
         self.allocator.free(self.ff.force_interactions);
         self.allocator.free(self.ff.energy_interactions);
         self.allocator.free(self.neighbor_list.pairs);
+        self.xyz_file.deinit();
     }
 
     pub fn initVelocities(self: *Self, temperature: Real) void {
@@ -272,12 +285,12 @@ pub const System = struct {
             self.calculateKineticEnergy();
             self.calculateTemperature();
             // Report properties
-            try self.ts_file.printDataLine(self);
+            try self.ts_file.printDataFromSystem(self);
         }
 
         // Write xyz file
         if (self.current_step % self.xyz_file_out == 0) {
-            try self.xyz_file.printDataFrame(self);
+            try self.xyz_file.printDataFromSystem(self);
         }
     }
 };

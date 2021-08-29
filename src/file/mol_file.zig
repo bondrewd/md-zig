@@ -3,33 +3,71 @@ const Real = @import("../config.zig").Real;
 const LennardJonesParameters = @import("../ff.zig").LennardJonesParameters;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
-pub const MolFile = struct {
-    allocator: *std.mem.Allocator,
+const MolFileData = struct {
     id: std.ArrayList(u64),
     mass: std.ArrayList(Real),
     charge: std.ArrayList(Real),
-    lennard_jones_parameters: std.ArrayList(LennardJonesParameters),
+    lj_parameters: std.ArrayList(LennardJonesParameters),
+};
+
+pub const MolFile = struct {
+    allocator: *std.mem.Allocator = undefined,
+    writer: ?std.fs.File.Writer = undefined,
+    reader: ?std.fs.File.Reader = undefined,
+    file: ?std.fs.File = undefined,
+    data: MolFileData = undefined,
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator, file_name: []const u8) !Self {
-        // Open pos file
-        var file = try std.fs.cwd().openFile(file_name, .{ .read = true });
-
-        // Init MolFile
-        var mol_file = Self{
+    pub fn init(allocator: *std.mem.Allocator) Self {
+        return Self{
             .allocator = allocator,
-            .id = std.ArrayList(u64).init(allocator),
-            .mass = std.ArrayList(Real).init(allocator),
-            .charge = std.ArrayList(Real).init(allocator),
-            .lennard_jones_parameters = std.ArrayList(LennardJonesParameters).init(allocator),
+            .data = .{
+                .id = std.ArrayList(u64).init(allocator),
+                .mass = std.ArrayList(Real).init(allocator),
+                .charge = std.ArrayList(Real).init(allocator),
+                .lj_parameters = std.ArrayList(LennardJonesParameters).init(allocator),
+            },
+        };
+    }
+
+    pub fn deinit(self: Self) void {
+        if (self.file) |f| f.close();
+        self.data.id.deinit();
+        self.data.mass.deinit();
+        self.data.charge.deinit();
+        self.data.lj_parameters.deinit();
+    }
+
+    pub fn openFile(self: *Self, file_name: []const u8, flags: std.fs.File.OpenFlags) !void {
+        var file = try std.fs.cwd().openFile(file_name, flags);
+        self.file = file;
+        if (flags.read) self.reader = file.reader();
+        if (flags.write) self.writer = file.writer();
+    }
+
+    pub fn createFile(self: *Self, file_name: []const u8, flags: std.fs.File.CreateFlags) !void {
+        var file = try std.fs.cwd().createFile(file_name, flags);
+        self.file = file;
+        if (flags.read) self.reader = file.reader();
+        self.writer = file.writer();
+    }
+
+    pub fn load(self: *Self) !void {
+        // Get file
+        var f = if (self.file) |file| file else {
+            try stopWithErrorMsg("Can't load mol file before open one", .{});
+            unreachable;
+        };
+
+        // Get reader
+        var r = if (self.reader) |reader| reader else {
+            try stopWithErrorMsg("Can't load mol file without read flag on", .{});
+            unreachable;
         };
 
         // Got the first line
-        try file.seekTo(0);
-
-        // Get reader
-        var r = file.reader();
+        try f.seekTo(0);
 
         // Declare buffer
         var buf: [1024]u8 = undefined;
@@ -90,7 +128,7 @@ pub const MolFile = struct {
                     unreachable;
                 };
 
-                try mol_file.lennard_jones_parameters.append(LennardJonesParameters{
+                try self.data.lj_parameters.append(LennardJonesParameters{
                     .id = id,
                     .e = e,
                     .s = s,
@@ -121,19 +159,39 @@ pub const MolFile = struct {
                     unreachable;
                 };
 
-                try mol_file.id.append(id);
-                try mol_file.mass.append(m);
-                try mol_file.charge.append(q);
+                try self.data.id.append(id);
+                try self.data.mass.append(m);
+                try self.data.charge.append(q);
             }
         }
-
-        return mol_file;
     }
 
-    pub fn deinit(self: Self) void {
-        self.id.deinit();
-        self.mass.deinit();
-        self.charge.deinit();
-        self.lennard_jones_parameters.deinit();
+    pub fn printData(self: *Self) !void {
+        // Get writer
+        var w = self.file.writer();
+
+        // Properties
+        try w.writeAll("[ PROPERTIES ]\n");
+        var i: usize = 0;
+        while (i < self.data.id.items.len) : (i += 1) {
+            try w.print("{d:>8} {d:>8.3} {d:>8.3}\n", .{
+                self.data.id.items[i],
+                self.data.mass.items[i],
+                self.data.charge.items[i],
+            });
+        }
+
+        try w.writeAll("\n");
+
+        // Lennard-Jones parameters
+        try w.writeAll("[ LENNARD-JONES ]\n");
+        i = 0;
+        while (i < self.data.id.items.len) : (i += 1) {
+            try w.print("{d:>8} {d:>8.3} {d:>8.3}\n", .{
+                self.data.lj_parameters.id.items[i],
+                self.data.lj_parameters.e.items[i],
+                self.data.lj_parameters.s.items[i],
+            });
+        }
     }
 };

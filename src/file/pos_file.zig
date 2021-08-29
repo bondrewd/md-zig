@@ -3,29 +3,65 @@ const Vec = @import("../vec.zig").Vec;
 const Real = @import("../config.zig").Real;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
-pub const PosFile = struct {
-    allocator: *std.mem.Allocator,
-    pos: std.ArrayList(Vec),
+const PosFileData = struct {
     id: std.ArrayList(u64),
+    pos: std.ArrayList(Vec),
+};
+
+pub const PosFile = struct {
+    allocator: *std.mem.Allocator = undefined,
+    writer: ?std.fs.File.Writer = undefined,
+    reader: ?std.fs.File.Reader = undefined,
+    file: ?std.fs.File = undefined,
+    data: PosFileData = undefined,
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator, file_name: []const u8) !Self {
-        // Open pos file
-        var file = try std.fs.cwd().openFile(file_name, .{ .read = true });
-
-        // Allocate array for positions and indexes
-        var pos_file = PosFile{
+    pub fn init(allocator: *std.mem.Allocator) Self {
+        return Self{
             .allocator = allocator,
-            .pos = std.ArrayList(Vec).init(allocator),
-            .id = std.ArrayList(u64).init(allocator),
+            .data = .{
+                .id = std.ArrayList(u64).init(allocator),
+                .pos = std.ArrayList(Vec).init(allocator),
+            },
+        };
+    }
+
+    pub fn deinit(self: Self) void {
+        if (self.file) |file| file.close();
+        self.data.id.deinit();
+        self.data.pos.deinit();
+    }
+
+    pub fn openFile(self: *Self, file_name: []const u8, flags: std.fs.File.OpenFlags) !void {
+        var file = try std.fs.cwd().openFile(file_name, flags);
+        self.file = file;
+        if (flags.read) self.reader = file.reader();
+        if (flags.write) self.writer = file.writer();
+    }
+
+    pub fn createFile(self: *Self, file_name: []const u8, flags: std.fs.File.CreateFlags) !void {
+        var file = try std.fs.cwd().createFile(file_name, flags);
+        self.file = file;
+        if (flags.read) self.reader = file.reader();
+        self.writer = file.writer();
+    }
+
+    pub fn load(self: *Self) !void {
+        // Get file
+        var f = if (self.file) |file| file else {
+            try stopWithErrorMsg("Can't load mol file before open one", .{});
+            unreachable;
+        };
+
+        // Get reader
+        var r = if (self.reader) |reader| reader else {
+            try stopWithErrorMsg("Can't load mol file without read flag on", .{});
+            unreachable;
         };
 
         // Got the first line
-        try file.seekTo(0);
-
-        // Get reader
-        var r = file.reader();
+        try f.seekTo(0);
 
         // Declare buffer
         var buf: [1024]u8 = undefined;
@@ -44,7 +80,9 @@ pub const PosFile = struct {
 
             // Parse line
             var tokens = std.mem.tokenize(u8, line, " ");
-            try pos_file.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+
+            // Save index
+            try self.data.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
                 try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
                 unreachable;
             } else {
@@ -52,7 +90,8 @@ pub const PosFile = struct {
                 unreachable;
             });
 
-            try pos_file.pos.append(Vec{
+            // Save positions
+            try self.data.pos.append(Vec{
                 .x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
                     try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
                     unreachable;
@@ -61,27 +100,20 @@ pub const PosFile = struct {
                     unreachable;
                 },
                 .y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad y position value {s} in line {s}", .{ token, line });
+                    try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing y position value at line #{d} -> {s}", .{ line_id, line });
+                    try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 },
                 .z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad z position value {s} in line {s}", .{ token, line });
+                    try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing z position value at line #{d} -> {s}", .{ line_id, line });
+                    try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 },
             });
         }
-
-        return pos_file;
-    }
-
-    pub fn deinit(self: Self) void {
-        self.pos.deinit();
-        self.id.deinit();
     }
 };
