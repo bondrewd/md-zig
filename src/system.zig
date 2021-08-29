@@ -131,15 +131,20 @@ pub const System = struct {
         system.calculateEnergyInteractions();
         system.calculateKineticEnergy();
 
+        // Initialize temperature
+        system.calculateTemperature();
+
         // Initialize integrator
         system.integrator = try Integrator.init(input);
 
         // Initialize files
         system.ts_file = try TsFile.init(input);
         system.ts_file_out = input.out_ts_step;
+        try system.ts_file.printDataLine(&system);
 
         system.xyz_file = try XyzFile.init(input);
         system.xyz_file_out = input.out_xyz_step;
+        try system.xyz_file.printDataFrame(&system);
 
         return system;
     }
@@ -184,6 +189,16 @@ pub const System = struct {
             // Assign random velocity
             self.v[i] = vec.scale(vec.mul(a, b), s);
         }
+
+        // Calculate scaling factor
+        var factor: Real = 0;
+        for (self.v) |v, j| factor += self.m[j] * vec.dot(v, v);
+        factor = 3.0 * @intToFloat(Real, self.v.len) * kb * temperature / factor;
+        factor = std.math.sqrt(factor);
+
+        // Scale velocities
+        i = 0;
+        while (i < self.v.len) : (i += 1) self.v[i] = vec.scale(self.v[i], factor);
     }
 
     pub fn calculateForceInteractions(self: *Self) void {
