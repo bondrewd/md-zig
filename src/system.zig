@@ -70,6 +70,9 @@ pub const System = struct {
         system.id = pos_file.id.toOwnedSlice();
         system.r = pos_file.pos.toOwnedSlice();
 
+        // Wrap system
+        system.wrap();
+
         // Allocate velocity, force, mass, and charge
         system.v = try allocator.alloc(Vec, system.r.len);
         system.f = try allocator.alloc(Vec, system.r.len);
@@ -237,6 +240,15 @@ pub const System = struct {
         self.temperature = 2.0 * self.energy.kinetic / (dof * kb);
     }
 
+    pub fn wrap(self: *Self) void {
+        if (self.use_pbc) {
+            var i: usize = 0;
+            while (i < self.r.len) : (i += 1) {
+                self.r[i] = vec.wrap(self.r[i], self.region);
+            }
+        }
+    }
+
     pub fn step(self: *Self) !void {
         // Update step counter
         self.current_step += 1;
@@ -251,12 +263,7 @@ pub const System = struct {
         self.integrator.evolveSystem(self);
 
         // Wrap system
-        if (self.use_pbc) {
-            var i: usize = 0;
-            while (i < self.r.len) : (i += 1) {
-                self.r[i] = vec.wrap(self.r[i], self.region);
-            }
-        }
+        self.wrap();
 
         // Write ts file
         if (self.current_step % self.ts_file_out == 0) {
