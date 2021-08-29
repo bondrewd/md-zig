@@ -6,6 +6,7 @@ const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 const PosFileData = struct {
     id: std.ArrayList(u64),
     pos: std.ArrayList(Vec),
+    time: Real,
 };
 
 pub const PosFile = struct {
@@ -23,6 +24,7 @@ pub const PosFile = struct {
             .data = .{
                 .id = std.ArrayList(u64).init(allocator),
                 .pos = std.ArrayList(Vec).init(allocator),
+                .time = 0.0,
             },
         };
     }
@@ -79,6 +81,15 @@ pub const PosFile = struct {
             if (std.mem.trim(u8, line, " ").len == 0) continue;
 
             // Parse line
+            if (std.mem.startsWith(u8, line, "time")) {
+                const time = std.mem.trim(u8, line[4..], " ");
+                self.data.time = std.fmt.parseFloat(Real, time) catch {
+                    try stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
+                    unreachable;
+                };
+                continue;
+            }
+
             var tokens = std.mem.tokenize(u8, line, " ");
 
             // Save index
