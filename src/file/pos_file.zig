@@ -52,13 +52,13 @@ pub const PosFile = struct {
     pub fn load(self: *Self) !void {
         // Get file
         var f = if (self.file) |file| file else {
-            try stopWithErrorMsg("Can't load mol file before open one", .{});
+            try stopWithErrorMsg("Can't load pos file before open one", .{});
             unreachable;
         };
 
         // Get reader
         var r = if (self.reader) |reader| reader else {
-            try stopWithErrorMsg("Can't load mol file without read flag on", .{});
+            try stopWithErrorMsg("Can't load pos file without read flag on", .{});
             unreachable;
         };
 
