@@ -187,17 +187,12 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
 
 pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParserEntry{
     .{
-        .name = "mol_file",
+        .name = "in_mol_file",
         .entry_type = []u8,
         .section = "INPUT",
     },
     .{
-        .name = "grp_file",
-        .entry_type = []u8,
-        .section = "INPUT",
-    },
-    .{
-        .name = "pos_file",
+        .name = "in_pos_file",
         .entry_type = []u8,
         .section = "INPUT",
     },

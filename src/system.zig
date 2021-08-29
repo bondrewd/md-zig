@@ -62,7 +62,7 @@ pub const System = struct {
         }
 
         // Parse pos file
-        var pos_file_name = std.mem.trim(u8, input.pos_file, " ");
+        var pos_file_name = std.mem.trim(u8, input.in_pos_file, " ");
         var pos_file = try PosFile.init(allocator, pos_file_name);
         defer pos_file.deinit();
 
@@ -77,7 +77,7 @@ pub const System = struct {
         system.q = try allocator.alloc(Real, system.r.len);
 
         // Parse mol file
-        var mol_file_name = std.mem.trim(u8, input.mol_file, " ");
+        var mol_file_name = std.mem.trim(u8, input.in_mol_file, " ");
         var mol_file = try MolFile.init(allocator, mol_file_name);
         defer mol_file.deinit();
 
@@ -91,13 +91,17 @@ pub const System = struct {
         var energy_interactions = std.ArrayList(fn (*Self) void).init(allocator);
         defer energy_interactions.deinit();
 
+        var neighbor_list_cutoff: Real = 0.0;
+
+        // --> Lennard-Jones interaction
         if (mol_file.lennard_jones_parameters.items.len > 0) {
             system.ff.lennard_jones_parameters = mol_file.lennard_jones_parameters.toOwnedSlice();
             try force_interactions.append(lennardJonesForceInteraction);
             try energy_interactions.append(lennardJonesEnergyInteraction);
+            // Cutoff for neighbor list
             for (system.ff.lennard_jones_parameters) |para| {
-                const cutoff = 2.0 * 2.5 * para.s;
-                if (system.ff.max_cutoff < cutoff) system.ff.max_cutoff = cutoff;
+                const cutoff = 2.5 * para.s + 0.3 * para.s;
+                if (neighbor_list_cutoff < cutoff) neighbor_list_cutoff = cutoff;
             }
         }
 
@@ -105,7 +109,7 @@ pub const System = struct {
         system.ff.energy_interactions = energy_interactions.toOwnedSlice();
 
         // Initialize neighbor list
-        system.neighbor_list = NeighborList.init(allocator, system.ff.max_cutoff);
+        system.neighbor_list = NeighborList.init(allocator, neighbor_list_cutoff);
         system.neighbor_list_update_step = input.neighbor_list_step;
         try system.neighbor_list.update(&system);
 
@@ -219,6 +223,9 @@ pub const System = struct {
     }
 
     pub fn step(self: *Self) !void {
+        // Update step counter
+        self.current_step += 1;
+
         // Update neighbor list
         if (self.current_step % self.neighbor_list_update_step == 0) {
             self.neighbor_list.deinit();
@@ -235,9 +242,6 @@ pub const System = struct {
                 self.r[i] = vec.wrap(self.r[i], self.region);
             }
         }
-
-        // Update step counter
-        self.current_step += 1;
 
         // Write ts file
         if (self.current_step % self.ts_file_out == 0) {

@@ -1,5 +1,5 @@
 zig-cache
 zig-out
 build_runner.zig
-out.ts
-out.xyz
+*.ts
+*.xyz

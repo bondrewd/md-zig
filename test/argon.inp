@@ -1,18 +1,19 @@
 [INPUT]
-mol_file           = ./test/argon.mol  # Molecule file
-grp_file           = ./test/argon.grp  # Group file
-pos_file           = ./test/argon.pos  # Position file
+in_mol_file        = ./test/argon.mol  # Molecule file
+in_pos_file        = ./test/argon.pos  # Position file
 
 [OUTPUT]
 out_ts_step        = 100               # Save time series every 10 steps
+out_ts_name        = out.ts            # Time series file name
 out_xyz_step       = 100               # Save coordinates every 10 steps
+out_xyz_name       = out.xyz           # XYZ position file name
  
 [DYNAMICS]
 integrator         = LEAP              # [LEAP,VVER]
 n_steps            = 100000            # number of MD steps
 time_step          = 0.001             # timestep (ps)
 ensemble           = NVE               # [NVE]
-rng_seed           = 0                 # If zero it is automatically generated
+rng_seed           = 0                 # If 0 it is automatically generated
 temperature        = 298               # Temperature (K)
 neighbor_list_step = 20                # Steps before updating neighbor list
  

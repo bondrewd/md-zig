@@ -12,5 +12,4 @@ pub const ForceField = struct {
     lennard_jones_parameters: []LennardJonesParameters = undefined,
     force_interactions: []fn (*System) void = undefined,
     energy_interactions: []fn (*System) void = undefined,
-    max_cutoff: Real = 0.0,
 };
