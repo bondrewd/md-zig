@@ -1,6 +1,7 @@
 const std = @import("std");
 const vec = @import("vec.zig");
 const Vec = @import("vec.zig").Vec;
+const Tensor = @import("vec.zig").Tensor;
 const kb = @import("constant.zig").kb;
 const Real = @import("config.zig").Real;
 const TsFile = @import("file.zig").TsFile;
@@ -27,6 +28,8 @@ pub const System = struct {
     q: []Real = undefined,
     ff: ForceField = undefined,
     temperature: Real = undefined,
+    virial: Tensor = undefined,
+    pressure: Tensor = undefined,
     integrator: Integrator = undefined,
     energy: struct { kinetic: Real, potential: Real } = undefined,
     current_step: u64 = undefined,
@@ -95,6 +98,12 @@ pub const System = struct {
         system.m = mol_file.data.mass.toOwnedSlice();
         system.q = mol_file.data.charge.toOwnedSlice();
 
+        // Initialize virial
+        system.virial = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+
+        // Initialize pressure
+        system.pressure = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+
         // Initialize force field
         var force_interactions = std.ArrayList(fn (*Self) void).init(allocator);
         defer force_interactions.deinit();
@@ -143,6 +152,9 @@ pub const System = struct {
 
         // Initialize temperature
         system.calculateTemperature();
+
+        // Initialize pressure
+        system.calculatePressure();
 
         // Initialize integrator
         system.integrator = try Integrator.init(input);
@@ -241,6 +253,9 @@ pub const System = struct {
             self.f[i] = Vec{ .x = 0.0, .y = 0.0, .z = 0.0 };
         }
 
+        // Reset virial
+        self.virial = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+
         // Calculate forces
         for (self.ff.force_interactions) |f| f(self);
     }
@@ -268,6 +283,24 @@ pub const System = struct {
         self.calculateKineticEnergy();
         const dof = 3.0 * @intToFloat(Real, self.r.len);
         self.temperature = 2.0 * self.energy.kinetic / (dof * kb);
+    }
+
+    pub fn calculatePressure(self: *Self) void {
+        // Calculate velocity tensor
+        var v_tensor: Tensor = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+        var i: usize = 0;
+        while (i < self.v.len) : (i += 1) {
+            const v = self.v[i];
+            const m = self.m[i];
+            const vv = vec.tensorProduct(v, v);
+            const vvm = vec.tensorScale(vv, m);
+            v_tensor = vec.tensorAdd(v_tensor, vvm);
+        }
+
+        // Calculate pressure
+        const vi = 1.0 / (self.region.x * self.region.y * self.region.z);
+        const tmp = vec.tensorAdd(v_tensor, self.virial);
+        self.pressure = vec.tensorScale(tmp, vi);
     }
 
     pub fn wrap(self: *Self) void {
@@ -301,6 +334,7 @@ pub const System = struct {
             self.calculateEnergyInteractions();
             self.calculateKineticEnergy();
             self.calculateTemperature();
+            self.calculatePressure();
             // Report properties
             try self.ts_file.printDataFromSystem(self);
         }

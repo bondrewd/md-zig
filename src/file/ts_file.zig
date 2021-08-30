@@ -46,13 +46,17 @@ pub const TsFile = struct {
         };
 
         // Print header
-        try w.print("#{s:>12} {s:>12} {s:>12} {s:>12} {s:>12} {s:>12}\n", .{
+        try w.print("#{s:>12} {s:>12} {s:>12} {s:>12} {s:>12} {s:>12} {s:>12} {s:>12} {s:>12} {s:>12}\n", .{
             "step",
             "time",
             "temperature",
             "kinetic",
             "potential",
             "total",
+            "pressure",
+            "px",
+            "py",
+            "pz",
         });
     }
 
@@ -64,13 +68,17 @@ pub const TsFile = struct {
         };
 
         // Print data
-        try w.print(" {d:>12} {d:>12.3} {d:>12.5} {e:>12.5} {e:>12.5} {e:>12.5}\n", .{
+        try w.print(" {d:>12} {d:>12.3} {d:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5}\n", .{
             system.current_step,
             @intToFloat(Real, system.current_step) * system.integrator.dt,
             system.temperature,
             system.energy.kinetic,
             system.energy.potential,
             system.energy.kinetic + system.energy.potential,
+            (system.pressure[0][0] + system.pressure[1][1] + system.pressure[2][2]) / 3.0,
+            system.pressure[0][0],
+            system.pressure[1][1],
+            system.pressure[2][2],
         });
     }
 };

@@ -37,6 +37,9 @@ pub fn lennardJonesForceInteraction(system: *System) void {
 
             system.f[i] = vec.add(system.f[i], force);
             system.f[j] = vec.sub(system.f[j], force);
+
+            system.virial = vec.tensorSub(system.virial, vec.tensorProduct(rj, force));
+            system.virial = vec.tensorAdd(system.virial, vec.tensorProduct(vec.add(rij, rj), force));
         }
     }
 }
