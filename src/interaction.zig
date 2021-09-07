@@ -42,7 +42,7 @@ pub fn lennardJonesForceInteraction(system: *System) void {
             system.f[i] = V3.addVV(system.f[i], force);
             system.f[j] = V3.subVV(system.f[j], force);
 
-            const rijf = V3.outerProductVV(rij, force);
+            const rijf = V3.outerVV(rij, force);
             system.virial.addM(rijf);
         }
     }

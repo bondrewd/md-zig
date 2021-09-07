@@ -295,7 +295,7 @@ pub const System = struct {
         while (i < self.v.len) : (i += 1) {
             const v = self.v[i];
             const m = self.m[i];
-            const vv = V3.outerProductVV(v, v);
+            const vv = V3.outerVV(v, v);
             const vvm = M3x3.mulMS(vv, m);
             v_tensor = M3x3.addMM(v_tensor, vvm);
         }
