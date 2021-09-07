@@ -1,7 +1,9 @@
 const std = @import("std");
-const vec = @import("vec.zig");
-const Vec = @import("vec.zig").Vec;
-const Tensor = @import("vec.zig").Tensor;
+
+const math = @import("math.zig");
+const V3 = math.V3;
+const M3x3 = math.M3x3;
+
 const kb = @import("constant.zig").kb;
 const Real = @import("config.zig").Real;
 const TsFile = @import("file.zig").TsFile;
@@ -21,19 +23,19 @@ pub const System = struct {
     allocator: *std.mem.Allocator = undefined,
     rng: std.rand.DefaultPrng = undefined,
     id: []u64 = undefined,
-    r: []Vec = undefined,
-    v: []Vec = undefined,
-    f: []Vec = undefined,
+    r: []V3 = undefined,
+    v: []V3 = undefined,
+    f: []V3 = undefined,
     m: []Real = undefined,
     q: []Real = undefined,
     ff: ForceField = undefined,
     temperature: Real = undefined,
-    virial: Tensor = undefined,
-    pressure: Tensor = undefined,
+    virial: M3x3 = undefined,
+    pressure: M3x3 = undefined,
     integrator: Integrator = undefined,
     energy: struct { kinetic: Real, potential: Real } = undefined,
     current_step: u64 = undefined,
-    region: Vec = undefined,
+    region: V3 = undefined,
     use_pbc: bool = undefined,
     neighbor_list: NeighborList = undefined,
     neighbor_list_update_step: u64 = undefined,
@@ -60,10 +62,10 @@ pub const System = struct {
         // Set region
         const bc = std.mem.trim(u8, input.boundary_type, " ");
         if (std.mem.eql(u8, bc, "PBC")) {
-            system.region = .{ .x = input.region_x, .y = input.region_y, .z = input.region_z };
+            system.region = V3.fromArray(.{ input.region_x, input.region_y, input.region_z });
             system.use_pbc = true;
         } else {
-            system.region = .{ .x = 0, .y = 0, .z = 0 };
+            system.region = V3.zeros();
             system.use_pbc = false;
         }
 
@@ -82,8 +84,8 @@ pub const System = struct {
         system.wrap();
 
         // Allocate velocity, force, mass, and charge
-        system.v = try allocator.alloc(Vec, system.r.len);
-        system.f = try allocator.alloc(Vec, system.r.len);
+        system.v = try allocator.alloc(V3, system.r.len);
+        system.f = try allocator.alloc(V3, system.r.len);
         system.m = try allocator.alloc(Real, system.r.len);
         system.q = try allocator.alloc(Real, system.r.len);
 
@@ -99,10 +101,10 @@ pub const System = struct {
         system.q = mol_file.data.charge.toOwnedSlice();
 
         // Initialize virial
-        system.virial = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+        system.virial = M3x3.zeros();
 
         // Initialize pressure
-        system.pressure = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+        system.pressure = M3x3.zeros();
 
         // Initialize force field
         var force_interactions = std.ArrayList(fn (*Self) void).init(allocator);
@@ -218,43 +220,44 @@ pub const System = struct {
             const s = std.math.sqrt(kb * temperature / self.m[i]);
 
             // Alpha
-            const a = Vec{
-                .x = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-                .y = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-                .z = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-            };
+            const a = V3.fromArray(.{
+                std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+                std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+                std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+            });
 
             // Beta
-            const b = Vec{
-                .x = @cos(2.0 * std.math.pi * rng.float(Real)),
-                .y = @cos(2.0 * std.math.pi * rng.float(Real)),
-                .z = @cos(2.0 * std.math.pi * rng.float(Real)),
-            };
+            const b = V3.fromArray(.{
+                @cos(2.0 * std.math.pi * rng.float(Real)),
+                @cos(2.0 * std.math.pi * rng.float(Real)),
+                @cos(2.0 * std.math.pi * rng.float(Real)),
+            });
 
             // Assign random velocity
-            self.v[i] = vec.scale(vec.mul(a, b), s);
+            const ab = V3.mulVV(a, b);
+            self.v[i] = V3.mulVS(ab, s);
         }
 
         // Calculate scaling factor
         var factor: Real = 0;
-        for (self.v) |v, j| factor += self.m[j] * vec.dot(v, v);
+        for (self.v) |v, j| factor += self.m[j] * V3.dotVV(v, v);
         factor = 3.0 * @intToFloat(Real, self.v.len) * kb * temperature / factor;
         factor = std.math.sqrt(factor);
 
         // Scale velocities
         i = 0;
-        while (i < self.v.len) : (i += 1) self.v[i] = vec.scale(self.v[i], factor);
+        while (i < self.v.len) : (i += 1) self.v[i] = V3.mulVS(self.v[i], factor);
     }
 
     pub fn calculateForceInteractions(self: *Self) void {
         // Reset forces
         var i: usize = 0;
         while (i < self.f.len) : (i += 1) {
-            self.f[i] = Vec{ .x = 0.0, .y = 0.0, .z = 0.0 };
+            self.f[i] = V3.fromArray(.{ 0.0, 0.0, 0.0 });
         }
 
         // Reset virial
-        self.virial = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+        self.virial = M3x3.zeros();
 
         // Calculate forces
         for (self.ff.force_interactions) |f| f(self);
@@ -273,7 +276,7 @@ pub const System = struct {
 
         var i: usize = 0;
         while (i < self.v.len) : (i += 1) {
-            energy += self.m[i] * vec.dot(self.v[i], self.v[i]);
+            energy += self.m[i] * V3.dotVV(self.v[i], self.v[i]);
         }
 
         self.energy.kinetic = 0.5 * energy;
@@ -287,27 +290,27 @@ pub const System = struct {
 
     pub fn calculatePressure(self: *Self) void {
         // Calculate velocity tensor
-        var v_tensor: Tensor = [_][3]Real{[_]Real{0.0} ** 3} ** 3;
+        var v_tensor = M3x3.zeros();
         var i: usize = 0;
         while (i < self.v.len) : (i += 1) {
             const v = self.v[i];
             const m = self.m[i];
-            const vv = vec.tensorProduct(v, v);
-            const vvm = vec.tensorScale(vv, m);
-            v_tensor = vec.tensorAdd(v_tensor, vvm);
+            const vv = V3.outerProductVV(v, v);
+            const vvm = M3x3.mulMS(vv, m);
+            v_tensor = M3x3.addMM(v_tensor, vvm);
         }
 
         // Calculate pressure
-        const vi = 1.0 / (self.region.x * self.region.y * self.region.z);
-        const tmp = vec.tensorAdd(v_tensor, self.virial);
-        self.pressure = vec.tensorScale(tmp, vi);
+        const vol = self.region.items[0] * self.region.items[1] * self.region.items[2];
+        const tmp = M3x3.addMM(v_tensor, self.virial);
+        self.pressure = M3x3.divMS(tmp, vol);
     }
 
     pub fn wrap(self: *Self) void {
         if (self.use_pbc) {
             var i: usize = 0;
             while (i < self.r.len) : (i += 1) {
-                self.r[i] = vec.wrap(self.r[i], self.region);
+                self.r[i] = math.wrap(self.r[i], self.region);
             }
         }
     }

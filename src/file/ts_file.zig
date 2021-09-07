@@ -75,10 +75,10 @@ pub const TsFile = struct {
             system.energy.kinetic,
             system.energy.potential,
             system.energy.kinetic + system.energy.potential,
-            (system.pressure[0][0] + system.pressure[1][1] + system.pressure[2][2]) / 3.0,
-            system.pressure[0][0],
-            system.pressure[1][1],
-            system.pressure[2][2],
+            (system.pressure.get(0, 0) + system.pressure.get(1, 1) + system.pressure.get(2, 2)) / 3.0,
+            system.pressure.get(0, 0),
+            system.pressure.get(1, 1),
+            system.pressure.get(2, 2),
         });
     }
 };

@@ -1,12 +1,16 @@
 const std = @import("std");
-const Vec = @import("../vec.zig").Vec;
+
+const math = @import("../math.zig");
+const V3 = math.V3;
+const M3x3 = math.M3x3;
+
 const Real = @import("../config.zig").Real;
 const System = @import("../system.zig").System;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
 const VelFileData = struct {
     id: std.ArrayList(u64),
-    vel: std.ArrayList(Vec),
+    vel: std.ArrayList(V3),
     time: Real,
 };
 
@@ -24,7 +28,7 @@ pub const VelFile = struct {
             .allocator = allocator,
             .data = .{
                 .id = std.ArrayList(u64).init(allocator),
-                .vel = std.ArrayList(Vec).init(allocator),
+                .vel = std.ArrayList(V3).init(allocator),
                 .time = 0.0,
             },
         };
@@ -94,38 +98,40 @@ pub const VelFile = struct {
             var tokens = std.mem.tokenize(u8, line, " ");
 
             // Save index
-            try self.data.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+            const index = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
                 try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
                 unreachable;
             } else {
                 try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
                 unreachable;
-            });
+            };
+
+            try self.data.id.append(index);
 
             // Save velocities
-            try self.data.vel.append(Vec{
-                .x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
-                },
-                .y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
-                },
-                .z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
-                },
-            });
+            const vx = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
+                unreachable;
+            } else {
+                try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
+                unreachable;
+            };
+            const vy = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
+                unreachable;
+            } else {
+                try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
+                unreachable;
+            };
+            const vz = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
+                unreachable;
+            } else {
+                try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
+                unreachable;
+            };
+
+            try self.data.vel.append(V3.fromArray(.{ vx, vy, vz }));
         }
     }
 
@@ -158,9 +164,9 @@ pub const VelFile = struct {
         for (system.v) |v, i| {
             try w.print("{d:>12}  {e:>12.5}  {e:>12.5}  {e:>12.5}\n", .{
                 system.id[i],
-                v.x,
-                v.y,
-                v.z,
+                v.items[0],
+                v.items[1],
+                v.items[2],
             });
         }
         // Write new line

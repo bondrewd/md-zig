@@ -1,5 +1,9 @@
 const std = @import("std");
-const vec = @import("vec.zig");
+
+const math = @import("math.zig");
+const V3 = math.V3;
+const M3x3 = math.M3x3;
+
 const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
 
@@ -22,9 +26,9 @@ pub fn lennardJonesForceInteraction(system: *System) void {
         const s2 = s * s;
         const cut_off2 = 6.25 * s2;
 
-        var rij = vec.sub(ri, rj);
-        if (system.use_pbc) rij = vec.wrap(rij, system.region);
-        const rij2 = vec.dot(rij, rij);
+        var rij = V3.subVV(ri, rj);
+        if (system.use_pbc) rij = math.wrap(rij, system.region);
+        const rij2 = V3.dotVV(rij, rij);
 
         if (rij2 < cut_off2) {
             const c2 = s2 / rij2;
@@ -33,13 +37,13 @@ pub fn lennardJonesForceInteraction(system: *System) void {
             const c14 = c8 * c4 * c2;
 
             const f = 48.0 * e * (c14 - 0.5 * c8) / s2;
-            const force = vec.scale(rij, f);
+            const force = V3.mulVS(rij, f);
 
-            system.f[i] = vec.add(system.f[i], force);
-            system.f[j] = vec.sub(system.f[j], force);
+            system.f[i] = V3.addVV(system.f[i], force);
+            system.f[j] = V3.subVV(system.f[j], force);
 
-            system.virial = vec.tensorSub(system.virial, vec.tensorProduct(rj, force));
-            system.virial = vec.tensorAdd(system.virial, vec.tensorProduct(vec.add(rij, rj), force));
+            const rijf = V3.outerProductVV(rij, force);
+            system.virial.addM(rijf);
         }
     }
 }
@@ -63,9 +67,9 @@ pub fn lennardJonesEnergyInteraction(system: *System) void {
         const s2 = s * s;
         const cut_off2 = 6.25 * s2;
 
-        var rij = vec.sub(ri, rj);
-        if (system.use_pbc) rij = vec.wrap(rij, system.region);
-        const rij2 = vec.dot(rij, rij);
+        var rij = V3.subVV(ri, rj);
+        if (system.use_pbc) rij = math.wrap(rij, system.region);
+        const rij2 = V3.dotVV(rij, rij);
 
         if (rij2 < cut_off2) {
             const c2 = s2 / rij2;

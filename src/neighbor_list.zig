@@ -1,5 +1,8 @@
 const std = @import("std");
-const vec = @import("vec.zig");
+
+const math = @import("math.zig");
+const V3 = math.V3;
+
 const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
 
@@ -32,9 +35,9 @@ pub const NeighborList = struct {
             while (j < system.r.len) : (j += 1) {
                 const rj = system.r[j];
 
-                var rij = vec.sub(ri, rj);
-                if (system.use_pbc) rij = vec.wrap(rij, system.region);
-                const rij2 = vec.dot(rij, rij);
+                var rij = V3.subVV(ri, rj);
+                if (system.use_pbc) rij = math.wrap(rij, system.region);
+                const rij2 = V3.dotVV(rij, rij);
 
                 if (rij2 < cutoff2) try pairs.append(.{
                     .i = @intCast(u64, i),

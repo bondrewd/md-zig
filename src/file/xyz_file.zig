@@ -69,9 +69,9 @@ pub const XyzFile = struct {
         // Write positions
         for (system.r) |r| {
             try w.print("H  {d:>8.3}  {d:>8.3}  {d:>8.3}\n", .{
-                r.x,
-                r.y,
-                r.z,
+                r.items[0],
+                r.items[1],
+                r.items[2],
             });
         }
     }

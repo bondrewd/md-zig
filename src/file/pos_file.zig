@@ -1,11 +1,14 @@
 const std = @import("std");
-const Vec = @import("../vec.zig").Vec;
+
+const math = @import("../math.zig");
+const V3 = math.V3;
+
 const Real = @import("../config.zig").Real;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
 const PosFileData = struct {
     id: std.ArrayList(u64),
-    pos: std.ArrayList(Vec),
+    pos: std.ArrayList(V3),
     time: Real,
 };
 
@@ -23,7 +26,7 @@ pub const PosFile = struct {
             .allocator = allocator,
             .data = .{
                 .id = std.ArrayList(u64).init(allocator),
-                .pos = std.ArrayList(Vec).init(allocator),
+                .pos = std.ArrayList(V3).init(allocator),
                 .time = 0.0,
             },
         };
@@ -102,29 +105,31 @@ pub const PosFile = struct {
             });
 
             // Save positions
-            try self.data.pos.append(Vec{
-                .x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
-                },
-                .y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
-                },
-                .z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
-                },
-            });
+            const x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+                unreachable;
+            } else {
+                try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+                unreachable;
+            };
+
+            const y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+                unreachable;
+            } else {
+                try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+                unreachable;
+            };
+
+            const z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+                unreachable;
+            } else {
+                try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+                unreachable;
+            };
+
+            try self.data.pos.append(V3.fromArray(.{ x, y, z }));
         }
     }
 };
