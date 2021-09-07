@@ -270,9 +270,7 @@ pub const System = struct {
     pub fn calculateForceInteractions(self: *Self) void {
         // Reset forces
         var i: usize = 0;
-        while (i < self.f.len) : (i += 1) {
-            self.f[i] = V3.fromArray(.{ 0.0, 0.0, 0.0 });
-        }
+        while (i < self.f.len) : (i += 1) self.f[i] = V3.zeros();
 
         // Reset virial
         self.virial = M3x3.zeros();
@@ -283,6 +281,12 @@ pub const System = struct {
 
         var t_virial = self.allocator.alloc(M3x3, self.n_threads) catch unreachable;
         defer self.allocator.free(t_virial);
+
+        // Initialize local thread variables
+        i = 0;
+        while (i < self.n_threads * self.f.len) : (i += 1) t_f[i] = V3.zeros();
+        i = 0;
+        while (i < self.n_threads) : (i += 1) t_virial[i] = M3x3.zeros();
 
         // Calculate forces
         i = 0;
@@ -298,7 +302,7 @@ pub const System = struct {
         // Reduce local thread variables
         i = 0;
         while (i < self.n_threads) : (i += 1) {
-            for (self.f) |*f, j| f.addV(t_f[i * self.n_threads + j]);
+            for (self.f) |*f, j| f.addV(t_f[i * self.f.len + j]);
             self.virial.addM(t_virial[i]);
         }
     }
