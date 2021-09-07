@@ -20,26 +20,31 @@ const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForc
 const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
 
 pub const System = struct {
+    // Configuration
     allocator: *std.mem.Allocator = undefined,
     rng: std.rand.DefaultPrng = undefined,
+    // System atom properties
     id: []u64 = undefined,
     r: []V3 = undefined,
     v: []V3 = undefined,
     f: []V3 = undefined,
     m: []Real = undefined,
     q: []Real = undefined,
+    // Integration variables
     ff: ForceField = undefined,
-    temperature: Real = undefined,
-    virial: M3x3 = undefined,
-    pressure: M3x3 = undefined,
-    integrator: Integrator = undefined,
-    energy: struct { kinetic: Real, potential: Real } = undefined,
     current_step: u64 = undefined,
-    region: V3 = undefined,
-    use_pbc: bool = undefined,
+    integrator: Integrator = undefined,
     neighbor_list: NeighborList = undefined,
     neighbor_list_update_step: u64 = undefined,
-
+    // System properties
+    virial: M3x3 = undefined,
+    pressure: M3x3 = undefined,
+    temperature: Real = undefined,
+    energy: struct { kinetic: Real, potential: Real } = undefined,
+    // System box
+    region: V3 = undefined,
+    use_pbc: bool = undefined,
+    // Output files
     ts_file: TsFile = undefined,
     ts_file_out: u64 = undefined,
     xyz_file: XyzFile = undefined,
@@ -297,21 +302,20 @@ pub const System = struct {
             const m = self.m[i];
             const vv = V3.outerVV(v, v);
             const vvm = M3x3.mulMS(vv, m);
-            v_tensor = M3x3.addMM(v_tensor, vvm);
+            v_tensor.addM(vvm);
         }
 
         // Calculate pressure
         const vol = self.region.items[0] * self.region.items[1] * self.region.items[2];
         const tmp = M3x3.addMM(v_tensor, self.virial);
-        self.pressure = M3x3.divMS(tmp, vol);
+        const prs = M3x3.divMS(tmp, vol);
+        self.pressure.addM(prs);
     }
 
     pub fn wrap(self: *Self) void {
-        if (self.use_pbc) {
-            var i: usize = 0;
-            while (i < self.r.len) : (i += 1) {
-                self.r[i] = math.wrap(self.r[i], self.region);
-            }
+        var i: usize = 0;
+        while (i < self.r.len) : (i += 1) {
+            self.r[i] = math.wrap(self.r[i], self.region);
         }
     }
 
@@ -320,16 +324,13 @@ pub const System = struct {
         self.current_step += 1;
 
         // Update neighbor list
-        if (self.current_step % self.neighbor_list_update_step == 0) {
-            self.neighbor_list.deinit();
-            try self.neighbor_list.update(self);
-        }
+        if (self.current_step % self.neighbor_list_update_step == 0) try self.neighbor_list.update(self);
 
         // Integrate equations of motion
         self.integrator.evolveSystem(self);
 
         // Wrap system
-        self.wrap();
+        if (self.use_pbc) self.wrap();
 
         // Write ts file
         if (self.ts_file_out > 0 and self.current_step % self.ts_file_out == 0) {

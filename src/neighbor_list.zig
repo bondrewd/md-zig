@@ -11,7 +11,7 @@ pub const Pair = struct { i: u64, j: u64 };
 pub const NeighborList = struct {
     allocator: *std.mem.Allocator,
     cutoff: Real,
-    pairs: []Pair = undefined,
+    pairs: []Pair = &[_]Pair{},
 
     const Self = @This();
 
@@ -20,6 +20,8 @@ pub const NeighborList = struct {
     }
 
     pub fn update(self: *Self, system: *System) !void {
+        // Deinit current list
+        self.deinit();
         // Declare list for saving pairs
         var pairs = std.ArrayList(Pair).init(self.allocator);
         defer pairs.deinit();
