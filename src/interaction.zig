@@ -5,11 +5,19 @@ const V3 = math.V3;
 const M3x3 = math.M3x3;
 
 const Real = @import("config.zig").Real;
+const Pair = @import("neighbor_list.zig").Pair;
 const System = @import("system.zig").System;
 
-pub fn lennardJonesForceInteraction(system: *System) void {
+pub fn lennardJonesForceInteraction(system: *System, t_f: []V3, t_virial: *M3x3, t_id: usize) void {
+    // Calculate pairs to work with
+    const n_pairs = system.neighbor_list.pairs.len;
+    const n_pairs_per_thread = (n_pairs + system.n_threads - 1) / system.n_threads;
+    const lo = t_id * n_pairs_per_thread;
+    const hi = std.math.min((t_id + 1) * n_pairs_per_thread, n_pairs);
+    if (lo > hi) return;
+
     // Loop over neighbors
-    for (system.neighbor_list.pairs) |pair| {
+    for (system.neighbor_list.pairs[lo..hi]) |pair| {
         const i = pair.i;
         const j = pair.j;
 
@@ -39,11 +47,11 @@ pub fn lennardJonesForceInteraction(system: *System) void {
             const f = 48.0 * e * (c14 - 0.5 * c8) / s2;
             const force = V3.mulVS(rij, f);
 
-            system.f[i] = V3.addVV(system.f[i], force);
-            system.f[j] = V3.subVV(system.f[j], force);
+            t_f[i].addV(force);
+            t_f[j].subV(force);
 
             const rijf = V3.outerVV(rij, force);
-            system.virial.addM(rijf);
+            t_virial.addM(rijf);
         }
     }
 }

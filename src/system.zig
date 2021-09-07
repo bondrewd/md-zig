@@ -23,6 +23,8 @@ pub const System = struct {
     // Configuration
     allocator: *std.mem.Allocator = undefined,
     rng: std.rand.DefaultPrng = undefined,
+    threads: []std.Thread = undefined,
+    n_threads: usize = undefined,
     // System atom properties
     id: []u64 = undefined,
     r: []V3 = undefined,
@@ -60,6 +62,10 @@ pub const System = struct {
 
         // Set allocator
         system.allocator = allocator;
+
+        // Init threads
+        system.n_threads = 16;
+        system.threads = try allocator.alloc(std.Thread, system.n_threads);
 
         // Set current step
         system.current_step = 0;
@@ -112,9 +118,10 @@ pub const System = struct {
         system.pressure = M3x3.zeros();
 
         // Initialize force field
-        var force_interactions = std.ArrayList(fn (*Self) void).init(allocator);
+        var force_interactions = std.ArrayList(fn (*System, []V3, *M3x3, usize) void).init(allocator);
         defer force_interactions.deinit();
-        var energy_interactions = std.ArrayList(fn (*Self) void).init(allocator);
+        //var energy_interactions = std.ArrayList(fn (*System, []V3, *M3x3, usize) void).init(allocator);
+        var energy_interactions = std.ArrayList(fn (*System) void).init(allocator);
         defer energy_interactions.deinit();
 
         var neighbor_list_cutoff: Real = 0.0;
@@ -211,6 +218,7 @@ pub const System = struct {
         self.allocator.free(self.ff.energy_interactions);
         self.allocator.free(self.neighbor_list.pairs);
         self.xyz_file.deinit();
+        self.allocator.free(self.threads);
     }
 
     pub fn initVelocities(self: *Self, temperature: Real) void {
@@ -254,6 +262,11 @@ pub const System = struct {
         while (i < self.v.len) : (i += 1) self.v[i] = V3.mulVS(self.v[i], factor);
     }
 
+    fn calculateForceInteractionsThread(system: *Self, t_f: []V3, t_virial: *M3x3, t_id: usize) void {
+        // Calculate forces
+        for (system.ff.force_interactions) |f| f(system, t_f, t_virial, t_id);
+    }
+
     pub fn calculateForceInteractions(self: *Self) void {
         // Reset forces
         var i: usize = 0;
@@ -264,8 +277,30 @@ pub const System = struct {
         // Reset virial
         self.virial = M3x3.zeros();
 
+        // Allocate local thread variables
+        var t_f = self.allocator.alloc(V3, self.n_threads * self.f.len) catch unreachable;
+        defer self.allocator.free(t_f);
+
+        var t_virial = self.allocator.alloc(M3x3, self.n_threads) catch unreachable;
+        defer self.allocator.free(t_virial);
+
         // Calculate forces
-        for (self.ff.force_interactions) |f| f(self);
+        i = 0;
+        while (i < self.n_threads) : (i += 1) self.threads[i] = std.Thread.spawn(.{}, calculateForceInteractionsThread, .{
+            self,
+            t_f[i * self.f.len .. (i + 1) * self.f.len],
+            &t_virial[i],
+            i,
+        }) catch unreachable;
+        i = 0;
+        while (i < self.n_threads) : (i += 1) self.threads[i].join();
+
+        // Reduce local thread variables
+        i = 0;
+        while (i < self.n_threads) : (i += 1) {
+            for (self.f) |*f, j| f.addV(t_f[i * self.n_threads + j]);
+            self.virial.addM(t_virial[i]);
+        }
     }
 
     pub fn calculateEnergyInteractions(self: *Self) void {
