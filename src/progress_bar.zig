@@ -40,7 +40,7 @@ pub const ProgressBar = struct {
         };
     }
 
-    pub fn displayProgress(self: Self, step: usize) !void {
+    pub fn displayProgressAllocator(self: Self, step: usize, allocator: *std.mem.Allocator) !void {
         var s = step;
         s = if (s > self.min) s else self.min;
         s = if (s < self.max) s else self.max;
@@ -51,26 +51,40 @@ pub const ProgressBar = struct {
         const x = @floatToInt(u32, @floor(l));
         const y = @floatToInt(u32, @floor(n * (l - @intToFloat(f32, x))));
 
+        // Output string
+        var bar = std.ArrayList(u8).init(allocator);
+        defer bar.deinit();
+        var w = bar.writer();
+
         // Carriage return
-        try self.writer.writeByte('\r');
+        try w.writeByte('\r');
         // Write left part
-        try self.writer.writeAll(self.l_sep);
+        try w.writeAll(self.l_sep);
         // Write middle part
         var i: usize = 0;
         while (i < self.length) : (i += 1) {
             if (i < x) {
-                try self.writer.writeAll(self.blocks[self.blocks.len - 1]);
+                try w.writeAll(self.blocks[self.blocks.len - 1]);
             } else if (i == x) {
-                try self.writer.writeAll(self.blocks[y]);
+                try w.writeAll(self.blocks[y]);
             } else {
-                try self.writer.writeAll(self.fill);
+                try w.writeAll(self.fill);
             }
         }
         // Write right part
-        try self.writer.writeAll(self.r_sep);
+        try w.writeAll(self.r_sep);
         // Write percentage
-        try self.writer.print(" {d:6.2}%", .{p * 100});
+        try w.print(" {d:6.2}%", .{p * 100});
         // Print new line
-        if (s == self.max) try self.writer.writeByte('\n');
+        if (s == self.max) try w.writeByte('\n');
+        // Flush string
+        try self.writer.writeAll(bar.items);
+    }
+
+    pub fn displayProgress(self: Self, step: usize) !void {
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena.deinit();
+        var allocator = &arena.allocator;
+        try self.displayProgressAllocator(step, allocator);
     }
 };
