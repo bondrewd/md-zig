@@ -15,11 +15,11 @@ n_threads          = 4                 # Number of threads
  
 [DYNAMICS]
 integrator         = LEAP              # [LEAP,VVER]
-n_steps            = 100000            # number of MD steps
+n_steps            = 10000             # number of MD steps
 time_step          = 0.001             # timestep (ps)
 ensemble           = NVE               # [NVE]
 rng_seed           = 0                 # If 0 it is automatically generated
-temperature        = 20                # Temperature (K)
+temperature        = 300               # Temperature (K)
 neighbor_list_step = 20                # Steps before updating neighbor list
  
 [BOUNDARY]
