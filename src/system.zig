@@ -64,7 +64,7 @@ pub const System = struct {
         system.allocator = allocator;
 
         // Init threads
-        system.n_threads = 16;
+        system.n_threads = input.n_threads;
         system.threads = try allocator.alloc(std.Thread, system.n_threads);
 
         // Set current step

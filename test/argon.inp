@@ -9,6 +9,9 @@ out_xyz_step       = 100               # Save coordinates every 10 steps
 out_xyz_file       = out.xyz           # XYZ position file name
 out_vel_step       = 100               # Save velocities every 10 steps
 out_vel_file       = out.vel           # Vel velocity file name
+
+[PARALLEL]
+n_threads          = 4                 # Number of threads
  
 [DYNAMICS]
 integrator         = LEAP              # [LEAP,VVER]

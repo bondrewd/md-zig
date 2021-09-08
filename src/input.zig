@@ -233,6 +233,12 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
         .default_value = .{ .int = 0 },
     },
     .{
+        .name = "n_threads",
+        .entry_type = usize,
+        .section = "PARALLEL",
+        .default_value = .{ .int = 1 },
+    },
+    .{
         .name = "integrator",
         .entry_type = []u8,
         .section = "DYNAMICS",
