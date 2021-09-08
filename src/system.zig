@@ -15,6 +15,7 @@ const ForceField = @import("ff.zig").ForceField;
 const Integrator = @import("integrator.zig").Integrator;
 const Input = @import("input.zig").MdInputFileParserResult;
 const NeighborList = @import("neighbor_list.zig").NeighborList;
+const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 
 const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
 const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
@@ -276,10 +277,16 @@ pub const System = struct {
         self.virial = M3x3.zeros();
 
         // Allocate local thread variables
-        var t_f = self.allocator.alloc(V3, self.n_threads * self.f.len) catch unreachable;
+        var t_f = self.allocator.alloc(V3, self.n_threads * self.f.len) catch {
+            stopWithErrorMsg("Could not allocate t_f array", .{}) catch unreachable;
+            unreachable;
+        };
         defer self.allocator.free(t_f);
 
-        var t_virial = self.allocator.alloc(M3x3, self.n_threads) catch unreachable;
+        var t_virial = self.allocator.alloc(M3x3, self.n_threads) catch {
+            stopWithErrorMsg("Could not allocate t_virial array", .{}) catch unreachable;
+            unreachable;
+        };
         defer self.allocator.free(t_virial);
 
         // Initialize local thread variables
@@ -295,7 +302,10 @@ pub const System = struct {
             t_f[i * self.f.len .. (i + 1) * self.f.len],
             &t_virial[i],
             i,
-        }) catch unreachable;
+        }) catch {
+            stopWithErrorMsg("Could not spawn #{d} thread for force calculation", .{i}) catch unreachable;
+            unreachable;
+        };
         i = 0;
         while (i < self.n_threads) : (i += 1) self.threads[i].join();
 
