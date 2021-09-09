@@ -1,0 +1,27 @@
+# TIP3P
+# Price and Brooks, J Chem Phys, 121, 10096 (2004)
+# https://doi.org/10.1063/1.1808117
+
+[ PROPERTIES ]
+#  index  element     mass   charge
+#      -        -    g/mol        e
+       1        H   1.0080    0.415
+       2        H   1.0080    0.415
+       3        O  15.9994   -0.830
+
+[ LENNARD-JONES ]
+#i-index j-index epsilon    sigma
+#      -       -  kJ/mol       nm
+       3       3   0.102    3.188
+
+[ HARMONIC-BOND ]
+#i-index j-index         k0       b0 
+#      -       -  kJ/mol-nm       nm
+       1       2    450.000   0.9572
+       2       3    450.000   0.9572
+
+[ HARMONIC-ANGLE ]
+#i-index j-index k-index          k0       t0 
+#      -       -       -  kJ/mol-deg      deg
+       1       2       3      55.000   104.52
+

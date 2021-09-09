@@ -1,17 +1,17 @@
 [INPUT]
-in_mol_file        = ./test/argon.mol  # Molecule file
-in_pos_file        = ./test/argon.pos  # Position file
+in_mol_file        = ./test/tip3p.mol  # Molecule file
+in_pos_file        = ./test/tip3p.pos  # Position file
 
 [OUTPUT]
 out_ts_step        = 100               # Save time series every 10 steps
-out_ts_file        = argon.ts          # Time series file name
+out_ts_file        = tip3p.ts          # Time series file name
 out_xyz_step       = 100               # Save coordinates every 10 steps
-out_xyz_file       = argon.xyz         # XYZ position file name
+out_xyz_file       = tip3p.xyz         # XYZ position file name
 out_vel_step       = 100               # Save velocities every 10 steps
-out_vel_file       = argon.vel         # Vel velocity file name
+out_vel_file       = tip3p.vel         # Vel velocity file name
 
 [PARALLEL]
-n_threads          = 4                 # Number of threads
+n_threads          = 1                 # Number of threads
  
 [DYNAMICS]
 integrator         = LEAP              # [LEAP,VVER]

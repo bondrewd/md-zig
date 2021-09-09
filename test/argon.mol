@@ -1,8 +1,10 @@
 # Argon lattice
+# J. A. White, J. Chem. Phys. 111, 9352 (1999)
+# https://doi.org/10.1063/1.479848
 
 [ PROPERTIES ]
 #  index     mass   charge
-#           g/mol        e
+#      -    g/mol        e
        1   39.948    0.000
        2   39.948    0.000
        3   39.948    0.000
@@ -1005,10 +1007,8 @@
     1000   39.948    0.000
 
 [ LENNARD-JONES ]
-# J. A. White, J. Chem. Phys. 111, 9352 (1999)
-# https://doi.org/10.1063/1.479848
 #  index  epsilon    sigma
-#          kJ/mol       nm
+#      -   kJ/mol       nm
        1    1.045   0.3345
        2    1.045   0.3345
        3    1.045   0.3345

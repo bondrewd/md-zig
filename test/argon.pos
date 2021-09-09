@@ -1,7 +1,7 @@
 # Argon lattice
 time    0.000
-#  index        x        y        z
-#              nm       nm       nm
+#      index             x             y             z
+#          -            nm            nm            nm
            1       0.00000       0.00000       0.00000
            2       0.00000       0.00000       0.67000
            3       0.00000       0.00000       1.34000
