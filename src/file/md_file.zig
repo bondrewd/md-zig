@@ -22,16 +22,12 @@ pub fn MdFile(
     comptime writeDataFn: fn (data: DataT, w: Writer, allocator: *Allocator) WriteDataErrorT!void,
 ) type {
     return struct {
-        // Data
         data: DataT,
-        // File allocator
         allocator: *Allocator,
-        // Associated file
         file: ?File,
         reader: ?Reader,
         writer: ?Writer,
 
-        // File internal types
         const Self = @This();
 
         pub fn init(allocator: *Allocator) Self {
@@ -52,12 +48,12 @@ pub fn MdFile(
 
         pub fn readData(self: *Self) ReadDataErrorT!void {
             if (self.reader == null) self.reader = self.file.?.Reader();
-            try readDataFn(self.data, self.reader, self.allocator);
+            try readDataFn(self.data, self.reader.?, self.allocator);
         }
 
         pub fn writeData(self: *Self) WriteDataErrorT!void {
             if (self.writer == null) self.writer = self.file.?.Writer();
-            try writeDataFn(self.data, self.writer, self.allocator);
+            try writeDataFn(self.data, self.writer.?, self.allocator);
         }
 
         pub fn openFile(self: *Self, file_name: []const u8, flags: OpenFlags) OpenError!void {
