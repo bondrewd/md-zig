@@ -14,37 +14,33 @@ const CreateError = File.CopyRangeError;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-pub fn MdFile(comptime DataT: type, comptime ErrorT: type) type {
+pub fn MdFile(
+    comptime DataT: type,
+    comptime ReadDataErrorT: type,
+    comptime readDataFn: fn (data: DataT, r: Reader, allocator: *Allocator) ReadDataErrorT!void,
+    comptime WriteDataErrorT: type,
+    comptime writeDataFn: fn (data: DataT, w: Writer, allocator: *Allocator) WriteDataErrorT!void,
+) type {
     return struct {
         // Data
-        data: ArrayList(DataT),
+        data: DataT,
         // File allocator
         allocator: *Allocator,
         // Associated file
         file: ?File,
         reader: ?Reader,
         writer: ?Writer,
-        // Functions
-        setDataFn: SetDataFnT,
-        readDataFn: ReadDataFnT,
-        printDataFn: PrintDataFnT,
 
         // File internal types
         const Self = @This();
-        const SetDataFnT = fn (*Self, []DataT) ErrorT!void;
-        const ReadDataFnT = fn (*Self) ErrorT!void;
-        const PrintDataFnT = fn (*Self) ErrorT!void;
 
-        pub fn init(allocator: *Allocator, setFn: SetDataFnT, readFn: ReadDataFnT, printFn: PrintDataFnT) Self {
+        pub fn init(allocator: *Allocator) Self {
             return Self{
-                .data = ArrayList(DataT).init(allocator),
+                .data = DataT.init(allocator),
                 .allocator = allocator,
                 .file = null,
                 .reader = null,
                 .writer = null,
-                .setDataFn = setFn,
-                .readDataFn = readFn,
-                .printDataFn = printFn,
             };
         }
 
@@ -54,16 +50,14 @@ pub fn MdFile(comptime DataT: type, comptime ErrorT: type) type {
             self.close();
         }
 
-        pub fn setData(self: *Self, data: DataT) ErrorT!void {
-            try self.setDataFn(self, data);
+        pub fn readData(self: *Self) ReadDataErrorT!void {
+            if (self.reader == null) self.reader = self.file.?.Reader();
+            try readDataFn(self.data, self.reader, self.allocator);
         }
 
-        pub fn readData(self: *Self) ErrorT!void {
-            try self.readDataFn(self);
-        }
-
-        pub fn printData(self: *Self) ErrorT!void {
-            try self.printDataFn(self);
+        pub fn writeData(self: *Self) WriteDataErrorT!void {
+            if (self.writer == null) self.writer = self.file.?.Writer();
+            try writeDataFn(self.data, self.writer, self.allocator);
         }
 
         pub fn openFile(self: *Self, file_name: []const u8, flags: OpenFlags) OpenError!void {
