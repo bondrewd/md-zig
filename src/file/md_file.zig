@@ -24,9 +24,7 @@ pub fn MdFile(
     return struct {
         data: DataT,
         allocator: *Allocator,
-        file: ?File,
-        reader: ?Reader,
-        writer: ?Writer,
+        file: File = undefined,
 
         const Self = @This();
 
@@ -34,45 +32,29 @@ pub fn MdFile(
             return Self{
                 .data = DataT.init(allocator),
                 .allocator = allocator,
-                .file = null,
-                .reader = null,
-                .writer = null,
             };
         }
 
         pub fn deinit(self: *Self) void {
             self.data.deinit();
             self.allocator = null;
-            self.close();
+            self.file.close();
         }
 
         pub fn readData(self: *Self) ReadDataErrorT!void {
-            if (self.reader == null) self.reader = self.file.?.Reader();
-            try readDataFn(self.data, self.reader.?, self.allocator);
+            try readDataFn(self.data, self.file.Reader(), self.allocator);
         }
 
         pub fn writeData(self: *Self) WriteDataErrorT!void {
-            if (self.writer == null) self.writer = self.file.?.Writer();
-            try writeDataFn(self.data, self.writer.?, self.allocator);
+            try writeDataFn(self.data, self.file.Writer(), self.allocator);
         }
 
         pub fn openFile(self: *Self, file_name: []const u8, flags: OpenFlags) OpenError!void {
-            self.close();
             self.file = try cwd().openFile(file_name, flags);
         }
 
         pub fn createFile(self: *Self, file_name: []const u8, flags: CreateFlags) CreateError!void {
-            self.close();
             self.file = try cwd().createFile(file_name, flags);
-        }
-
-        pub fn close(self: *Self) void {
-            if (self.file) |f| {
-                f.close();
-                self.file = null;
-                self.reader = null;
-                self.writer = null;
-            }
         }
     };
 }
