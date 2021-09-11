@@ -133,6 +133,9 @@ pub fn writeData(data: *Data, w: Writer, _: *Allocator) WriteDataError!void {
     for (data.frames.items) |frame| {
         // Print time
         w.print("time {d}\n", .{frame.time}) catch return error.WriteLine;
+        // Print units
+        w.print("#     id        x        y        z\n", .{});
+        w.print("#      -       nm       nm       nm\n", .{});
         // Print positions
         for (frame.id.items) |id, i| {
             w.print("{d:>8} {d:>8.3} {d:>8.3} {d:>8.3}\n", .{
