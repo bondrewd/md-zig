@@ -128,23 +128,28 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 }
 
 pub const WriteDataError = error{WriteLine};
+pub fn writeFrame(index: ArrayList(u64), pos: ArrayList(V), time: Real, w: Writer) WriteDataError!void {
+    // Print time
+    w.print("time {d}\n", .{time}) catch return error.WriteLine;
+    // Print units
+    w.print("#     id        x        y        z\n", .{}) catch return error.WriteLine;
+    w.print("#      -       nm       nm       nm\n", .{}) catch return error.WriteLine;
+    // Print positions
+    for (index.items) |id, i| {
+        w.print("{d:>8} {d:>8.3} {d:>8.3} {d:>8.3}\n", .{
+            id,
+            pos.items[i].items[0],
+            pos.items[i].items[1],
+            pos.items[i].items[2],
+        }) catch return error.WriteLine;
+    }
+}
+
 pub fn writeData(data: *Data, w: Writer, _: *Allocator) WriteDataError!void {
     // Loop over frames
     for (data.frames.items) |frame| {
-        // Print time
-        w.print("time {d}\n", .{frame.time}) catch return error.WriteLine;
-        // Print units
-        w.print("#     id        x        y        z\n", .{}) catch return error.WriteLine;
-        w.print("#      -       nm       nm       nm\n", .{}) catch return error.WriteLine;
-        // Print positions
-        for (frame.id.items) |id, i| {
-            w.print("{d:>8} {d:>8.3} {d:>8.3} {d:>8.3}\n", .{
-                id,
-                frame.pos.items[i].items[0],
-                frame.pos.items[i].items[1],
-                frame.pos.items[i].items[2],
-            }) catch return error.WriteLine;
-        }
+        // Print frame
+        try writeFrame(frame.id, frame.pos, frame.time, w);
         // Print new line
         w.print("\n", .{}) catch return error.WriteLine;
     }
