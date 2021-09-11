@@ -21,11 +21,11 @@ pub fn lennardJonesForceInteraction(system: *System, t_f: []V3, t_virial: *M3x3,
         const i = pair.i;
         const j = pair.j;
 
-        const ri = system.r[i];
+        const ri = system.r.items[i];
         const ei = system.ff.lennard_jones_parameters[i].e;
         const si = system.ff.lennard_jones_parameters[i].s;
 
-        const rj = system.r[j];
+        const rj = system.r.items[j];
         const ej = system.ff.lennard_jones_parameters[j].e;
         const sj = system.ff.lennard_jones_parameters[j].s;
 
@@ -62,11 +62,11 @@ pub fn lennardJonesEnergyInteraction(system: *System) void {
         const i = pair.i;
         const j = pair.j;
 
-        const ri = system.r[i];
+        const ri = system.r.items[i];
         const ei = system.ff.lennard_jones_parameters[i].e;
         const si = system.ff.lennard_jones_parameters[i].s;
 
-        const rj = system.r[j];
+        const rj = system.r.items[j];
         const ej = system.ff.lennard_jones_parameters[j].e;
         const sj = system.ff.lennard_jones_parameters[j].s;
 

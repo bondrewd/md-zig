@@ -30,12 +30,12 @@ pub const NeighborList = struct {
         const cutoff2 = self.cutoff * self.cutoff;
 
         var i: usize = 0;
-        while (i < system.r.len) : (i += 1) {
-            const ri = system.r[i];
+        while (i < system.r.items.len) : (i += 1) {
+            const ri = system.r.items[i];
 
             var j: usize = i + 1;
-            while (j < system.r.len) : (j += 1) {
-                const rj = system.r[j];
+            while (j < system.r.items.len) : (j += 1) {
+                const rj = system.r.items[j];
 
                 var rij = V3.subVV(ri, rj);
                 if (system.use_pbc) rij = math.wrap(rij, system.region);

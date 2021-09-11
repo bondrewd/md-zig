@@ -161,9 +161,9 @@ pub const VelFile = struct {
         });
 
         // Write velocities
-        for (system.v) |v, i| {
+        for (system.v.items) |v, i| {
             try w.print("{d:>12}  {e:>12.5}  {e:>12.5}  {e:>12.5}\n", .{
-                system.id[i],
+                system.id.items[i],
                 v.items[0],
                 v.items[1],
                 v.items[2],

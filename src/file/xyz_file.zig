@@ -63,11 +63,11 @@ pub const XyzFile = struct {
         };
 
         // Write number of entries
-        try w.print("{d}\n", .{system.r.len});
+        try w.print("{d}\n", .{system.r.items.len});
         // Write comment line
         try w.writeAll("\n");
         // Write positions
-        for (system.r) |r| {
+        for (system.r.items) |r| {
             try w.print("H  {d:>8.3}  {d:>8.3}  {d:>8.3}\n", .{
                 r.items[0],
                 r.items[1],

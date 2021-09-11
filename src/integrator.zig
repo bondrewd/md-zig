@@ -39,11 +39,11 @@ pub fn leapFrog(system: *System) void {
 
     // First part
     var i: usize = 0;
-    while (i < system.r.len) : (i += 1) {
+    while (i < system.r.items.len) : (i += 1) {
         // v(t + dt/2) = v(t) + f(t) * dt/2m
-        system.v[i] = V3.addVV(system.v[i], V3.mulVS(system.f[i], 0.5 * dt / system.m[i]));
+        system.v.items[i] = V3.addVV(system.v.items[i], V3.mulVS(system.f.items[i], 0.5 * dt / system.m.items[i]));
         // x(t + dt) = x(t) + v(t + dt/2) * dt
-        system.r[i] = V3.addVV(system.r[i], V3.mulVS(system.v[i], dt));
+        system.r.items[i] = V3.addVV(system.r.items[i], V3.mulVS(system.v.items[i], dt));
     }
 
     // Update forces
@@ -52,8 +52,8 @@ pub fn leapFrog(system: *System) void {
 
     // Second part
     i = 0;
-    while (i < system.r.len) : (i += 1) {
+    while (i < system.r.items.len) : (i += 1) {
         // v(t + dt) = v(t + dt/2) + f(t + dt) * dt/2m
-        system.v[i] = V3.addVV(system.v[i], V3.mulVS(system.f[i], 0.5 * dt / system.m[i]));
+        system.v.items[i] = V3.addVV(system.v.items[i], V3.mulVS(system.f.items[i], 0.5 * dt / system.m.items[i]));
     }
 }
