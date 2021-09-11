@@ -57,13 +57,13 @@ pub const VelFile = struct {
     pub fn load(self: *Self) !void {
         // Get file
         var f = if (self.file) |file| file else {
-            try stopWithErrorMsg("Can't load vel file before open one", .{});
+            stopWithErrorMsg("Can't load vel file before open one", .{});
             unreachable;
         };
 
         // Get reader
         var r = if (self.reader) |reader| reader else {
-            try stopWithErrorMsg("Can't load vel file without read flag on", .{});
+            stopWithErrorMsg("Can't load vel file without read flag on", .{});
             unreachable;
         };
 
@@ -89,7 +89,7 @@ pub const VelFile = struct {
             if (std.mem.startsWith(u8, line, "time")) {
                 const time = std.mem.trim(u8, line[4..], " ");
                 self.data.time = std.fmt.parseFloat(Real, time) catch {
-                    try stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
+                    stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
                     unreachable;
                 };
                 continue;
@@ -99,10 +99,10 @@ pub const VelFile = struct {
 
             // Save index
             const index = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
-                try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
+                stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
                 unreachable;
             } else {
-                try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
+                stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
                 unreachable;
             };
 
@@ -110,24 +110,24 @@ pub const VelFile = struct {
 
             // Save velocities
             const vx = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
+                stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
                 unreachable;
             } else {
-                try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
+                stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
                 unreachable;
             };
             const vy = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
+                stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
                 unreachable;
             } else {
-                try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
+                stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
                 unreachable;
             };
             const vz = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                try stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
+                stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
                 unreachable;
             } else {
-                try stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
+                stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
                 unreachable;
             };
 
@@ -138,7 +138,7 @@ pub const VelFile = struct {
     pub fn printDataFromSystem(self: Self, system: *System) !void {
         // Get writer
         var w = if (self.writer) |w| w else {
-            try stopWithErrorMsg("Can't print vel file before open or create one", .{});
+            stopWithErrorMsg("Can't print vel file before open or create one", .{});
             unreachable;
         };
 

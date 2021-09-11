@@ -11,7 +11,7 @@ pub const Integrator = struct {
 
     const Self = @This();
 
-    pub fn init(input: Input) !Self {
+    pub fn init(input: Input) Self {
         // Declare integrator
         var integrator = Integrator{};
 
@@ -25,7 +25,7 @@ pub const Integrator = struct {
         if (std.mem.eql(u8, "LEAP", name)) {
             integrator.evolveSystem = leapFrog;
         } else {
-            try stopWithErrorMsg("Unknown integrator -> {s}", .{name});
+            stopWithErrorMsg("Unknown integrator -> {s}", .{name});
             unreachable;
         }
 

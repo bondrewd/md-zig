@@ -86,11 +86,11 @@ pub const System = struct {
         var pos_file = PosFile.init(allocator);
         defer pos_file.deinit();
         try pos_file.openFile(pos_file_name, .{});
-        try pos_file.load();
+        try pos_file.readData();
 
         // Initialize ids and positions
-        system.id = pos_file.data.id.toOwnedSlice();
-        system.r = pos_file.data.pos.toOwnedSlice();
+        system.id = pos_file.data.frames.items[0].id.toOwnedSlice();
+        system.r = pos_file.data.frames.items[0].pos.toOwnedSlice();
 
         // Wrap system
         system.wrap();
@@ -172,7 +172,7 @@ pub const System = struct {
         system.calculatePressure();
 
         // Initialize integrator
-        system.integrator = try Integrator.init(input);
+        system.integrator = Integrator.init(input);
 
         // TS output file
         if (input.out_ts_step > 0) {
@@ -278,13 +278,13 @@ pub const System = struct {
 
         // Allocate local thread variables
         var t_f = self.allocator.alloc(V3, self.n_threads * self.f.len) catch {
-            stopWithErrorMsg("Could not allocate t_f array", .{}) catch unreachable;
+            stopWithErrorMsg("Could not allocate t_f array", .{});
             unreachable;
         };
         defer self.allocator.free(t_f);
 
         var t_virial = self.allocator.alloc(M3x3, self.n_threads) catch {
-            stopWithErrorMsg("Could not allocate t_virial array", .{}) catch unreachable;
+            stopWithErrorMsg("Could not allocate t_virial array", .{});
             unreachable;
         };
         defer self.allocator.free(t_virial);
@@ -303,7 +303,7 @@ pub const System = struct {
             &t_virial[i],
             i,
         }) catch {
-            stopWithErrorMsg("Could not spawn #{d} thread for force calculation", .{i}) catch unreachable;
+            stopWithErrorMsg("Could not spawn #{d} thread for force calculation", .{i});
             unreachable;
         };
         i = 0;

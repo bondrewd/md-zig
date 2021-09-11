@@ -56,7 +56,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
 
         pub fn parse(allocator: *Allocator, input_file_name: []const u8) !InputFileParserResult {
             var f = std.fs.cwd().openFile(input_file_name, .{ .read = true }) catch {
-                try stopWithErrorMsg("Can't open file {s}", .{input_file_name});
+                stopWithErrorMsg("Can't open file {s}", .{input_file_name});
                 unreachable;
             };
 
@@ -103,7 +103,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
                         mem.copy(u8, &current_section, line[1..index]);
                         continue;
                     } else {
-                        try stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
+                        stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
                     }
                 }
 
@@ -113,7 +113,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
                     if (sep_idx) |idx| {
                         line[idx] = ' ';
                     } else {
-                        try stopWithErrorMsg("Missing separator " ++ config.separator ++ " -> {s}", .{line});
+                        stopWithErrorMsg("Missing separator " ++ config.separator ++ " -> {s}", .{line});
                     }
                 }
 
@@ -122,7 +122,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
 
                 // Get key
                 const key = if (tokens.next()) |token| token else {
-                    try stopWithErrorMsg("Missing key value in input file -> {s}", .{line});
+                    stopWithErrorMsg("Missing key value in input file -> {s}", .{line});
                     unreachable;
                 };
 
@@ -147,7 +147,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
                                 var val_up = std.ascii.upperString(&buffer, val_trim);
                                 if (mem.eql(u8, val_up, "ON") or mem.eql(u8, val_up, "YES") or mem.eql(u8, val_up, "TRUE")) break :blk true;
                                 if (mem.eql(u8, val_up, "OFF") or mem.eql(u8, val_up, "NO") or mem.eql(u8, val_up, "FALSE")) break :blk false;
-                                try stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val_trim});
+                                stopWithErrorMsg("Bad value for entry " ++ entry.name ++ " -> {s}", .{val_trim});
                             },
                             else => unreachable,
                         }
@@ -166,7 +166,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
                             else => unreachable,
                         }
                     } else {
-                        try stopWithErrorMsg("Missing value for " ++ entry.name, .{});
+                        stopWithErrorMsg("Missing value for " ++ entry.name, .{});
                     }
                 }
             }

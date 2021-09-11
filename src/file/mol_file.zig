@@ -56,13 +56,13 @@ pub const MolFile = struct {
     pub fn load(self: *Self) !void {
         // Get file
         var f = if (self.file) |file| file else {
-            try stopWithErrorMsg("Can't load mol file before open one", .{});
+            stopWithErrorMsg("Can't load mol file before open one", .{});
             unreachable;
         };
 
         // Get reader
         var r = if (self.reader) |reader| reader else {
-            try stopWithErrorMsg("Can't load mol file without read flag on", .{});
+            stopWithErrorMsg("Can't load mol file without read flag on", .{});
             unreachable;
         };
 
@@ -95,7 +95,7 @@ pub const MolFile = struct {
                     std.mem.copy(u8, &current_section, line[1..index]);
                     continue;
                 } else {
-                    try stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
+                    stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
                 }
             }
             const current_section_trim = std.mem.trim(u8, &current_section, " ");
@@ -105,26 +105,26 @@ pub const MolFile = struct {
             if (std.mem.eql(u8, current_section_trim, "LENNARD-JONES")) {
                 // Parse index
                 const id = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
-                    try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
+                    stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
+                    stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 };
 
                 const e = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad epsilon value {s} in line {s}", .{ token, line });
+                    stopWithErrorMsg("Bad epsilon value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing epsilon value at line #{d} -> {s}", .{ line_id, line });
+                    stopWithErrorMsg("Missing epsilon value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 };
 
                 const s = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad sigma value {s} in line {s}", .{ token, line });
+                    stopWithErrorMsg("Bad sigma value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing sigma value at line #{d} -> {s}", .{ line_id, line });
+                    stopWithErrorMsg("Missing sigma value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 };
 
@@ -136,26 +136,32 @@ pub const MolFile = struct {
             } else if (std.mem.eql(u8, current_section_trim, "PROPERTIES")) {
                 // Parse index
                 const id = if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
-                    try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
+                    stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
+                    stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 };
 
+                // TODO: Parse element
+                _ = tokens.next();
+
+                // TODO: Parse name
+                _ = tokens.next();
+
                 const m = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad mass value {s} in line {s}", .{ token, line });
+                    stopWithErrorMsg("Bad mass value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing mass value at line #{d} -> {s}", .{ line_id, line });
+                    stopWithErrorMsg("Missing mass value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 };
 
                 const q = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                    try stopWithErrorMsg("Bad charge value {s} in line {s}", .{ token, line });
+                    stopWithErrorMsg("Bad charge value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
-                    try stopWithErrorMsg("Missing charge value at line #{d} -> {s}", .{ line_id, line });
+                    stopWithErrorMsg("Missing charge value at line #{d} -> {s}", .{ line_id, line });
                     unreachable;
                 };
 

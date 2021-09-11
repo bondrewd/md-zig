@@ -15,14 +15,14 @@ const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
 pub fn MdFile(
-    comptime DataT: type,
-    comptime ReadDataErrorT: type,
-    comptime readDataFn: fn (data: DataT, r: Reader, allocator: *Allocator) ReadDataErrorT!void,
-    comptime WriteDataErrorT: type,
-    comptime writeDataFn: fn (data: DataT, w: Writer, allocator: *Allocator) WriteDataErrorT!void,
+    comptime Data: type,
+    comptime ReadDataError: type,
+    comptime readDataFn: fn (data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void,
+    comptime WriteDataError: type,
+    comptime writeDataFn: fn (data: *Data, w: Writer, allocator: *Allocator) WriteDataError!void,
 ) type {
     return struct {
-        data: DataT,
+        data: Data,
         allocator: *Allocator,
         file: File = undefined,
 
@@ -30,23 +30,22 @@ pub fn MdFile(
 
         pub fn init(allocator: *Allocator) Self {
             return Self{
-                .data = DataT.init(allocator),
+                .data = Data.init(allocator),
                 .allocator = allocator,
             };
         }
 
         pub fn deinit(self: *Self) void {
             self.data.deinit();
-            self.allocator = null;
             self.file.close();
         }
 
-        pub fn readData(self: *Self) ReadDataErrorT!void {
-            try readDataFn(self.data, self.file.Reader(), self.allocator);
+        pub fn readData(self: *Self) ReadDataError!void {
+            try readDataFn(&self.data, self.file.reader(), self.allocator);
         }
 
-        pub fn writeData(self: *Self) WriteDataErrorT!void {
-            try writeDataFn(self.data, self.file.Writer(), self.allocator);
+        pub fn writeData(self: *Self) WriteDataError!void {
+            try writeDataFn(&self.data, self.file.writer(), self.allocator);
         }
 
         pub fn openFile(self: *Self, file_name: []const u8, flags: OpenFlags) OpenError!void {

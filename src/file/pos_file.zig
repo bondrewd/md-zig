@@ -1,135 +1,150 @@
 const std = @import("std");
 
-const math = @import("../math.zig");
-const V3 = math.V3;
+const File = std.fs.File;
+const Reader = File.Reader;
+const Writer = File.Writer;
 
+const V = @import("../math.zig").V3;
 const Real = @import("../config.zig").Real;
+const MdFile = @import("md_file.zig").MdFile;
+
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
+
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
-const PosFileData = struct {
-    id: std.ArrayList(u64),
-    pos: std.ArrayList(V3),
+pub const Frame = struct {
+    id: ArrayList(u64),
+    pos: ArrayList(V),
     time: Real,
-};
-
-pub const PosFile = struct {
-    allocator: *std.mem.Allocator = undefined,
-    writer: ?std.fs.File.Writer = undefined,
-    reader: ?std.fs.File.Reader = undefined,
-    file: ?std.fs.File = undefined,
-    data: PosFileData = undefined,
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator) Self {
+    pub fn init(allocator: *Allocator) Self {
         return Self{
-            .allocator = allocator,
-            .data = .{
-                .id = std.ArrayList(u64).init(allocator),
-                .pos = std.ArrayList(V3).init(allocator),
-                .time = 0.0,
-            },
+            .id = ArrayList(u64).init(allocator),
+            .pos = ArrayList(V).init(allocator),
+            .time = 0.0,
         };
     }
 
-    pub fn deinit(self: Self) void {
-        if (self.file) |file| file.close();
-        self.data.id.deinit();
-        self.data.pos.deinit();
-    }
-
-    pub fn openFile(self: *Self, file_name: []const u8, flags: std.fs.File.OpenFlags) !void {
-        var file = try std.fs.cwd().openFile(file_name, flags);
-        self.file = file;
-        if (flags.read) self.reader = file.reader();
-        if (flags.write) self.writer = file.writer();
-    }
-
-    pub fn createFile(self: *Self, file_name: []const u8, flags: std.fs.File.CreateFlags) !void {
-        var file = try std.fs.cwd().createFile(file_name, flags);
-        self.file = file;
-        if (flags.read) self.reader = file.reader();
-        self.writer = file.writer();
-    }
-
-    pub fn load(self: *Self) !void {
-        // Get file
-        var f = if (self.file) |file| file else {
-            try stopWithErrorMsg("Can't load pos file before open one", .{});
-            unreachable;
-        };
-
-        // Get reader
-        var r = if (self.reader) |reader| reader else {
-            try stopWithErrorMsg("Can't load pos file without read flag on", .{});
-            unreachable;
-        };
-
-        // Got the first line
-        try f.seekTo(0);
-
-        // Declare buffer
-        var buf: [1024]u8 = undefined;
-
-        // Iterate over lines
-        var line_id: usize = 0;
-        while (try r.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-            // Update line number
-            line_id += 1;
-
-            // Skip comments
-            if (std.mem.startsWith(u8, line, "#")) continue;
-
-            // Skip empty lines
-            if (std.mem.trim(u8, line, " ").len == 0) continue;
-
-            // Parse line
-            if (std.mem.startsWith(u8, line, "time")) {
-                const time = std.mem.trim(u8, line[4..], " ");
-                self.data.time = std.fmt.parseFloat(Real, time) catch {
-                    try stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
-                    unreachable;
-                };
-                continue;
-            }
-
-            var tokens = std.mem.tokenize(u8, line, " ");
-
-            // Save index
-            try self.data.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
-                try stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-                unreachable;
-            } else {
-                try stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-                unreachable;
-            });
-
-            // Save positions
-            const x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                unreachable;
-            } else {
-                try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                unreachable;
-            };
-
-            const y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                unreachable;
-            } else {
-                try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                unreachable;
-            };
-
-            const z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-                try stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                unreachable;
-            } else {
-                try stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                unreachable;
-            };
-
-            try self.data.pos.append(V3.fromArray(.{ x, y, z }));
-        }
+    pub fn deinit(self: *Self) void {
+        self.id.deinit();
+        self.pos.deinit();
     }
 };
+
+pub const Data = struct {
+    frames: ArrayList(Frame),
+
+    const Self = @This();
+
+    pub fn init(allocator: *Allocator) Self {
+        return Self{
+            .frames = ArrayList(Frame).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        for (self.frames.items) |*frame| frame.deinit();
+        self.frames.deinit();
+    }
+};
+
+pub const ReadDataError = error{ BadPosLine, OutOfMemory };
+pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
+    // Local variables
+    var buf: [1024]u8 = undefined;
+    var frame: ?Frame = null;
+
+    // Iterate over lines
+    var line_id: usize = 0;
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadPosLine) |line| {
+        // Update line number
+        line_id += 1;
+
+        // Skip comments
+        if (std.mem.startsWith(u8, line, "#")) continue;
+
+        // Skip empty lines
+        if (std.mem.trim(u8, line, " ").len == 0) continue;
+
+        // Parse time line
+        if (std.mem.startsWith(u8, line, "time")) {
+            // Init frame
+            if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
+            frame = Frame.init(allocator);
+
+            // Parse time
+            const time = std.mem.trim(u8, line[4..], " ");
+            frame.?.time = std.fmt.parseFloat(Real, time) catch {
+                stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
+                unreachable;
+            };
+            continue;
+        }
+
+        // Tokenize line
+        var tokens = std.mem.tokenize(u8, line, " ");
+
+        // Parse index
+        frame.?.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+            stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
+            unreachable;
+        } else {
+            stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
+            unreachable;
+        }) catch return error.OutOfMemory;
+
+        // Parse positions
+        const x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+            unreachable;
+        } else {
+            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+            unreachable;
+        };
+
+        const y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+            unreachable;
+        } else {
+            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+            unreachable;
+        };
+
+        const z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+            unreachable;
+        } else {
+            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+            unreachable;
+        };
+
+        frame.?.pos.append(V.fromArray(.{ x, y, z })) catch return error.OutOfMemory;
+    }
+
+    if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
+}
+
+pub const WriteDataError = error{WriteLine};
+pub fn writeData(data: *Data, w: Writer, _: *Allocator) WriteDataError!void {
+    // Loop over frames
+    for (data.frames.items) |frame| {
+        // Print time
+        w.print("time {d}\n", .{frame.time}) catch return error.WriteLine;
+        // Print positions
+        for (frame.id.items) |id, i| {
+            w.print("{d:>8} {d:>8.3} {d:>8.3} {d:>8.3}\n", .{
+                id,
+                frame.pos.items[i].items[0],
+                frame.pos.items[i].items[1],
+                frame.pos.items[i].items[2],
+            }) catch return error.WriteLine;
+        }
+        // Print new line
+        w.print("\n", .{}) catch return error.WriteLine;
+    }
+}
+
+pub const PosFile = MdFile(Data, ReadDataError, readData, WriteDataError, writeData);

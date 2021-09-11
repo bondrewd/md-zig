@@ -58,7 +58,7 @@ pub const XyzFile = struct {
     pub fn printDataFromSystem(self: Self, system: *System) !void {
         // Get writer
         var w = if (self.writer) |w| w else {
-            try stopWithErrorMsg("Can't print xyz file before open or create one", .{});
+            stopWithErrorMsg("Can't print xyz file before open or create one", .{});
             unreachable;
         };
 
