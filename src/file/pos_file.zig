@@ -130,13 +130,13 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 pub const WriteDataError = error{WriteLine};
 pub fn writeFrame(index: ArrayList(u64), pos: ArrayList(V), time: Real, w: Writer) WriteDataError!void {
     // Print time
-    w.print("time {d}\n", .{time}) catch return error.WriteLine;
+    w.print("time {d:>12.3}\n", .{time}) catch return error.WriteLine;
     // Print units
-    w.print("#     id        x        y        z\n", .{}) catch return error.WriteLine;
-    w.print("#      -       nm       nm       nm\n", .{}) catch return error.WriteLine;
+    w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "id", "x", "y", "z" }) catch return error.WriteLine;
+    w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "-", "nm", "nm", "nm" }) catch return error.WriteLine;
     // Print positions
     for (index.items) |id, i| {
-        w.print("{d:>8} {d:>8.3} {d:>8.3} {d:>8.3}\n", .{
+        w.print("{d:>12}  {d:>12.5}  {d:>12.5}  {d:>12.5}\n", .{
             id,
             pos.items[i].items[0],
             pos.items[i].items[1],

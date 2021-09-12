@@ -48,11 +48,11 @@ pub fn MdFile(
             try writeDataFn(&self.data, self.file.writer(), self.allocator);
         }
 
-        pub fn openFile(self: *Self, file_name: []const u8, flags: OpenFlags) OpenError!void {
+        pub fn openFile(self: *Self, file_name: []const u8, flags: OpenFlags) !void {
             self.file = try cwd().openFile(file_name, flags);
         }
 
-        pub fn createFile(self: *Self, file_name: []const u8, flags: CreateFlags) CreateError!void {
+        pub fn createFile(self: *Self, file_name: []const u8, flags: CreateFlags) !void {
             self.file = try cwd().createFile(file_name, flags);
         }
     };

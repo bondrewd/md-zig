@@ -13,6 +13,7 @@ const XyzFile = @import("file.zig").XyzFile;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
 const VelFile = @import("file.zig").VelFile;
+const writeFrame = @import("file/vel_file.zig").writeFrame;
 const ForceField = @import("ff.zig").ForceField;
 const Integrator = @import("integrator.zig").Integrator;
 const Input = @import("input.zig").MdInputFileParserResult;
@@ -208,7 +209,12 @@ pub const System = struct {
             var vel_file_name = std.mem.trim(u8, input.out_vel_file, " ");
             var vel_file = VelFile.init(allocator);
             try vel_file.createFile(vel_file_name, .{});
-            try vel_file.printDataFromSystem(&system);
+            try writeFrame(
+                system.id,
+                system.v,
+                @intToFloat(Real, system.current_step) * system.integrator.dt,
+                vel_file.file.writer(),
+            );
             system.vel_file = vel_file;
             system.vel_file_out = input.out_vel_step;
         }
@@ -407,7 +413,12 @@ pub const System = struct {
 
         // Write vel file
         if (self.vel_file_out > 0 and self.current_step % self.vel_file_out == 0) {
-            try self.vel_file.printDataFromSystem(self);
+            try writeFrame(
+                self.id,
+                self.v,
+                @intToFloat(Real, self.current_step) * self.integrator.dt,
+                self.vel_file.file.writer(),
+            );
         }
     }
 };
