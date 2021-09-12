@@ -7,13 +7,15 @@ const V = math.V3;
 const M3x3 = math.M3x3;
 
 const kb = @import("constant.zig").kb;
+const Element = @import("constant.zig").Element;
 const Real = @import("config.zig").Real;
 const TsFile = @import("file.zig").TsFile;
 const XyzFile = @import("file.zig").XyzFile;
+const xyzWriteFrame = @import("file/xyz_file.zig").writeFrame;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
 const VelFile = @import("file.zig").VelFile;
-const writeFrame = @import("file/vel_file.zig").writeFrame;
+const velWriteFrame = @import("file/vel_file.zig").writeFrame;
 const ForceField = @import("ff.zig").ForceField;
 const Integrator = @import("integrator.zig").Integrator;
 const Input = @import("input.zig").MdInputFileParserResult;
@@ -36,6 +38,7 @@ pub const System = struct {
     f: ArrayList(V) = undefined,
     m: ArrayList(Real) = undefined,
     q: ArrayList(Real) = undefined,
+    e: ArrayList(Element) = undefined,
     // Integration variables
     ff: ForceField = undefined,
     current_step: u64 = undefined,
@@ -195,11 +198,20 @@ pub const System = struct {
         }
 
         // XYZ output file
+        // TODO: temporal fix until mol file is refactored
+        system.e = try ArrayList(Element).initCapacity(allocator, system.r.items.len);
+        for (system.r.items) |_| try system.e.append(.Ar);
+
         if (input.out_xyz_step > 0) {
             var xyz_file_name = std.mem.trim(u8, input.out_xyz_file, " ");
             var xyz_file = XyzFile.init(allocator);
             try xyz_file.createFile(xyz_file_name, .{});
-            try xyz_file.printDataFromSystem(&system);
+            try xyzWriteFrame(
+                system.id.items.len,
+                system.e,
+                system.r,
+                xyz_file.file.writer(),
+            );
             system.xyz_file = xyz_file;
             system.xyz_file_out = input.out_xyz_step;
         }
@@ -209,7 +221,7 @@ pub const System = struct {
             var vel_file_name = std.mem.trim(u8, input.out_vel_file, " ");
             var vel_file = VelFile.init(allocator);
             try vel_file.createFile(vel_file_name, .{});
-            try writeFrame(
+            try velWriteFrame(
                 system.id,
                 system.v,
                 @intToFloat(Real, system.current_step) * system.integrator.dt,
@@ -222,16 +234,18 @@ pub const System = struct {
         return system;
     }
 
-    pub fn deinit(self: Self) void {
+    pub fn deinit(self: *Self) void {
         self.id.deinit();
         self.r.deinit();
         self.v.deinit();
         self.f.deinit();
         self.m.deinit();
         self.q.deinit();
+        self.e.deinit();
         self.allocator.free(self.ff.force_interactions);
         self.allocator.free(self.ff.energy_interactions);
         self.allocator.free(self.neighbor_list.pairs);
+        self.vel_file.deinit();
         self.xyz_file.deinit();
         self.allocator.free(self.threads);
     }
@@ -408,12 +422,17 @@ pub const System = struct {
 
         // Write xyz file
         if (self.xyz_file_out > 0 and self.current_step % self.xyz_file_out == 0) {
-            try self.xyz_file.printDataFromSystem(self);
+            try xyzWriteFrame(
+                self.id.items.len,
+                self.e,
+                self.r,
+                self.xyz_file.file.writer(),
+            );
         }
 
         // Write vel file
         if (self.vel_file_out > 0 and self.current_step % self.vel_file_out == 0) {
-            try writeFrame(
+            try velWriteFrame(
                 self.id,
                 self.v,
                 @intToFloat(Real, self.current_step) * self.integrator.dt,

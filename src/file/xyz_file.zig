@@ -1,78 +1,176 @@
 const std = @import("std");
+
+const File = std.fs.File;
+const Reader = File.Reader;
+const Writer = File.Writer;
+
+const V = @import("../math.zig").V3;
 const Real = @import("../config.zig").Real;
-const System = @import("../system.zig").System;
+const MdFile = @import("md_file.zig").MdFile;
+const Element = @import("../constant.zig").Element;
+
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
+
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
+const elementFromString = @import("../constant.zig").elementFromString;
 
-const XyzFileData = struct {
-    id: std.ArrayList(u64),
-    x: std.ArrayList(Real),
-    y: std.ArrayList(Real),
-    z: std.ArrayList(Real),
-};
-
-pub const XyzFile = struct {
-    allocator: *std.mem.Allocator = undefined,
-    writer: ?std.fs.File.Writer = undefined,
-    reader: ?std.fs.File.Reader = undefined,
-    file: ?std.fs.File = undefined,
-    data: XyzFileData = undefined,
+pub const Frame = struct {
+    n_atoms: u64,
+    elements: ArrayList(Element),
+    pos: ArrayList(V),
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator) Self {
+    pub fn init(allocator: *Allocator) Self {
         return Self{
-            .allocator = allocator,
-            .data = .{
-                .id = std.ArrayList(u64).init(allocator),
-                .x = std.ArrayList(Real).init(allocator),
-                .y = std.ArrayList(Real).init(allocator),
-                .z = std.ArrayList(Real).init(allocator),
-            },
+            .n_atoms = 0,
+            .elements = ArrayList(Element).init(allocator),
+            .pos = ArrayList(V).init(allocator),
         };
     }
 
-    pub fn deinit(self: Self) void {
-        if (self.file) |file| file.close();
-        self.data.id.deinit();
-        self.data.x.deinit();
-        self.data.y.deinit();
-        self.data.z.deinit();
-    }
-
-    pub fn openFile(self: *Self, file_name: []const u8, flags: std.fs.File.OpenFlags) !void {
-        var file = try std.fs.cwd().openFile(file_name, flags);
-        self.file = file;
-        if (flags.read) self.reader = file.reader();
-        if (flags.write) self.writer = file.writer();
-    }
-
-    pub fn createFile(self: *Self, file_name: []const u8, flags: std.fs.File.CreateFlags) !void {
-        var file = try std.fs.cwd().createFile(file_name, flags);
-        self.file = file;
-        if (flags.read) self.reader = file.reader();
-        self.writer = file.writer();
-    }
-
-    pub fn load(_: *Self) !void {}
-
-    pub fn printDataFromSystem(self: Self, system: *System) !void {
-        // Get writer
-        var w = if (self.writer) |w| w else {
-            stopWithErrorMsg("Can't print xyz file before open or create one", .{});
-            unreachable;
-        };
-
-        // Write number of entries
-        try w.print("{d}\n", .{system.r.items.len});
-        // Write comment line
-        try w.writeAll("\n");
-        // Write positions
-        for (system.r.items) |r| {
-            try w.print("H  {d:>8.3}  {d:>8.3}  {d:>8.3}\n", .{
-                r.items[0],
-                r.items[1],
-                r.items[2],
-            });
-        }
+    pub fn deinit(self: *Self) void {
+        self.elements.deinit();
+        self.pos.deinit();
     }
 };
+
+pub const Data = struct {
+    frames: ArrayList(Frame),
+
+    const Self = @This();
+
+    pub fn init(allocator: *Allocator) Self {
+        return Self{
+            .frames = ArrayList(Frame).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        for (self.frames.items) |*frame| frame.deinit();
+        self.frames.deinit();
+    }
+};
+
+pub const ReadDataError = error{ BadPosLine, OutOfMemory };
+pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
+    // State
+    const State = enum { NumberOfAtoms, Comment, Positions };
+    var state: State = .NumberOfAtoms;
+
+    // Local variables
+    var buf: [1024]u8 = undefined;
+    var frame: ?Frame = null;
+
+    // Iterate over lines
+    var line_id: usize = 0;
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadPosLine) |line| {
+        // Update line number
+        line_id += 1;
+
+        // Skip empty lines
+        if (state == .NumberOfAtoms and std.mem.trim(u8, line, " ").len == 0) continue;
+
+        switch (state) {
+            // Parse number of atoms
+            .NumberOfAtoms => {
+                // Init frame
+                if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
+                frame = Frame.init(allocator);
+
+                // Parse number
+                const n_atoms = std.mem.trim(u8, line, " ");
+                frame.?.n_atoms = std.fmt.parseInt(u64, n_atoms, 10) catch {
+                    stopWithErrorMsg("Bad number of atoms value {s} in line {s}", .{ n_atoms, line });
+                    unreachable;
+                };
+
+                // Update state
+                state = .Comment;
+                continue;
+            },
+            // Ignore comment
+            .Comment => {
+                // Update state
+                state = .Positions;
+                continue;
+            },
+            // Parse positions
+            .Positions => {
+                // Tokenize line
+                var tokens = std.mem.tokenize(u8, line, " ");
+
+                // Parse index
+                frame.?.elements.append(if (tokens.next()) |token| elementFromString(token) catch {
+                    stopWithErrorMsg("Unknown element {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    stopWithErrorMsg("Missing element at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                }) catch return error.OutOfMemory;
+
+                // Parse positions
+                const x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                const y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                const z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                    stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+                    unreachable;
+                } else {
+                    stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+                    unreachable;
+                };
+
+                // Update state
+                state = .NumberOfAtoms;
+                frame.?.pos.append(V.fromArray(.{ x, y, z })) catch return error.OutOfMemory;
+                continue;
+            },
+        }
+    }
+
+    if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
+}
+
+pub const WriteDataError = error{WriteLine};
+pub fn writeFrame(n_atoms: u64, elements: ArrayList(Element), pos: ArrayList(V), w: Writer) WriteDataError!void {
+    // Print time
+    w.print("{d}\n", .{n_atoms}) catch return error.WriteLine;
+    // Print comment
+    w.print("\n", .{}) catch return error.WriteLine;
+    // Print positions
+    for (elements.items) |e, i| {
+        w.print("{s:<12}  {d:>12.5}  {d:>12.5}  {d:>12.5}\n", .{
+            e.toString(),
+            pos.items[i].items[0],
+            pos.items[i].items[1],
+            pos.items[i].items[2],
+        }) catch return error.WriteLine;
+    }
+}
+
+pub fn writeData(data: *Data, w: Writer, _: *Allocator) WriteDataError!void {
+    // Loop over frames
+    for (data.frames.items) |frame| {
+        // Print frame
+        try writeFrame(frame.n_atoms, frame.elements, frame.pos, w);
+        // Print new line
+        w.print("\n", .{}) catch return error.WriteLine;
+    }
+}
+
+pub const XyzFile = MdFile(Data, ReadDataError, readData, WriteDataError, writeData);

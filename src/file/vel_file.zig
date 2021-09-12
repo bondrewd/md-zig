@@ -30,7 +30,7 @@ pub const Frame = struct {
 
     pub fn deinit(self: *Self) void {
         self.id.deinit();
-        self.pos.deinit();
+        self.vel.deinit();
     }
 };
 
