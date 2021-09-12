@@ -53,7 +53,7 @@ pub const Data = struct {
     }
 };
 
-pub const ReadDataError = error{ BadPosLine, OutOfMemory };
+pub const ReadDataError = error{ BadXyzLine, OutOfMemory };
 pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
     // State
     const State = enum { NumberOfAtoms, Comment, Positions };
@@ -65,7 +65,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
     // Iterate over lines
     var line_id: usize = 0;
-    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadPosLine) |line| {
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadXyzLine) |line| {
         // Update line number
         line_id += 1;
 

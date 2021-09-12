@@ -22,6 +22,7 @@ const Input = @import("input.zig").MdInputFileParserResult;
 const NeighborList = @import("neighbor_list.zig").NeighborList;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 
+const LennardJonesParameters = @import("ff.zig").LennardJonesParameters;
 const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
 const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
 
@@ -115,13 +116,13 @@ pub const System = struct {
         var mol_file = MolFile.init(allocator);
         defer mol_file.deinit();
         try mol_file.openFile(mol_file_name, .{});
-        try mol_file.load();
+        try mol_file.readData();
 
         // Initialize mass and charge
-        var m_slice = mol_file.data.mass.toOwnedSlice();
+        var m_slice = mol_file.data.properties.mass.toOwnedSlice();
         system.m = ArrayList(f64).fromOwnedSlice(allocator, m_slice);
 
-        var q_slice = mol_file.data.charge.toOwnedSlice();
+        var q_slice = mol_file.data.properties.charge.toOwnedSlice();
         system.q = ArrayList(f64).fromOwnedSlice(allocator, q_slice);
 
         // Initialize virial
@@ -140,8 +141,17 @@ pub const System = struct {
         var neighbor_list_cutoff: Real = 0.0;
 
         // --> Lennard-Jones interaction
-        if (mol_file.data.lj_parameters.items.len > 0) {
-            system.ff.lennard_jones_parameters = mol_file.data.lj_parameters.toOwnedSlice();
+        if (mol_file.data.lennard_jones.id.items.len > 0) {
+            var lj_parameters = ArrayList(LennardJonesParameters).init(allocator);
+            defer lj_parameters.deinit();
+            for (mol_file.data.lennard_jones.id.items) |id, i| {
+                try lj_parameters.append(.{
+                    .id = id,
+                    .e = mol_file.data.lennard_jones.e.items[i],
+                    .s = mol_file.data.lennard_jones.s.items[i],
+                });
+            }
+            system.ff.lennard_jones_parameters = lj_parameters.toOwnedSlice();
             try force_interactions.append(lennardJonesForceInteraction);
             try energy_interactions.append(lennardJonesEnergyInteraction);
             // Cutoff for neighbor list

@@ -51,7 +51,7 @@ pub const Data = struct {
     }
 };
 
-pub const ReadDataError = error{ BadPosLine, OutOfMemory };
+pub const ReadDataError = error{ BadVelLine, OutOfMemory };
 pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
     // Local variables
     var buf: [1024]u8 = undefined;
@@ -59,7 +59,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
     // Iterate over lines
     var line_id: usize = 0;
-    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadPosLine) |line| {
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadVelLine) |line| {
         // Update line number
         line_id += 1;
 
@@ -96,28 +96,28 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         }) catch return error.OutOfMemory;
 
-        // Parse positions
+        // Parse velocities
         const vx = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+            stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
-            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+            stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
             unreachable;
         };
 
         const vy = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+            stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
-            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+            stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
             unreachable;
         };
 
         const vz = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
-            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
+            stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
-            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
+            stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
             unreachable;
         };
 
@@ -134,7 +134,7 @@ pub fn writeFrame(index: ArrayList(u64), vel: ArrayList(V), time: Real, w: Write
     // Print units
     w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "id", "vx", "vy", "vz" }) catch return error.WriteLine;
     w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "-", "nm/ps", "nm/ps", "nm/ps" }) catch return error.WriteLine;
-    // Print positions
+    // Print velocities
     for (index.items) |id, i| {
         w.print("{d:>12}  {e:>12.5}  {e:>12.5}  {e:>12.5}\n", .{
             id,
