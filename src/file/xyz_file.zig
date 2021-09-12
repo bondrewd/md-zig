@@ -17,7 +17,7 @@ const elementFromString = @import("../constant.zig").elementFromString;
 
 pub const Frame = struct {
     n_atoms: u64,
-    elements: ArrayList(Element),
+    element: ArrayList(Element),
     pos: ArrayList(V),
 
     const Self = @This();
@@ -25,13 +25,13 @@ pub const Frame = struct {
     pub fn init(allocator: *Allocator) Self {
         return Self{
             .n_atoms = 0,
-            .elements = ArrayList(Element).init(allocator),
+            .element = ArrayList(Element).init(allocator),
             .pos = ArrayList(V).init(allocator),
         };
     }
 
     pub fn deinit(self: *Self) void {
-        self.elements.deinit();
+        self.element.deinit();
         self.pos.deinit();
     }
 };
@@ -102,7 +102,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                 var tokens = std.mem.tokenize(u8, line, " ");
 
                 // Parse index
-                frame.?.elements.append(if (tokens.next()) |token| elementFromString(token) catch {
+                frame.?.element.append(if (tokens.next()) |token| elementFromString(token) catch {
                     stopWithErrorMsg("Unknown element {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
@@ -147,18 +147,18 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 }
 
 pub const WriteDataError = error{WriteLine};
-pub fn writeFrame(n_atoms: u64, elements: ArrayList(Element), pos: ArrayList(V), w: Writer) WriteDataError!void {
+pub fn writeFrame(frame: Frame, w: Writer) WriteDataError!void {
     // Print time
-    w.print("{d}\n", .{n_atoms}) catch return error.WriteLine;
+    w.print("{d}\n", .{frame.n_atoms}) catch return error.WriteLine;
     // Print comment
     w.print("\n", .{}) catch return error.WriteLine;
     // Print positions
-    for (elements.items) |e, i| {
+    for (frame.element.items) |e, i| {
         w.print("{s:<12}  {d:>12.5}  {d:>12.5}  {d:>12.5}\n", .{
             e.toString(),
-            pos.items[i].items[0],
-            pos.items[i].items[1],
-            pos.items[i].items[2],
+            frame.pos.items[i].items[0],
+            frame.pos.items[i].items[1],
+            frame.pos.items[i].items[2],
         }) catch return error.WriteLine;
     }
 }
@@ -167,7 +167,7 @@ pub fn writeData(data: *Data, w: Writer, _: *Allocator) WriteDataError!void {
     // Loop over frames
     for (data.frames.items) |frame| {
         // Print frame
-        try writeFrame(frame.n_atoms, frame.elements, frame.pos, w);
+        try writeFrame(frame, w);
         // Print new line
         w.print("\n", .{}) catch return error.WriteLine;
     }

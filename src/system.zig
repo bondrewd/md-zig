@@ -217,9 +217,11 @@ pub const System = struct {
             var xyz_file = XyzFile.init(allocator);
             try xyz_file.createFile(xyz_file_name, .{});
             try xyzWriteFrame(
-                system.id.items.len,
-                system.e,
-                system.r,
+                .{
+                    .n_atoms = system.id.items.len,
+                    .element = system.e,
+                    .pos = system.r,
+                },
                 xyz_file.file.writer(),
             );
             system.xyz_file = xyz_file;
@@ -232,9 +234,11 @@ pub const System = struct {
             var vel_file = VelFile.init(allocator);
             try vel_file.createFile(vel_file_name, .{});
             try velWriteFrame(
-                system.id,
-                system.v,
-                @intToFloat(Real, system.current_step) * system.integrator.dt,
+                .{
+                    .id = system.id,
+                    .vel = system.v,
+                    .time = @intToFloat(Real, system.current_step) * system.integrator.dt,
+                },
                 vel_file.file.writer(),
             );
             system.vel_file = vel_file;
@@ -433,9 +437,11 @@ pub const System = struct {
         // Write xyz file
         if (self.xyz_file_out > 0 and self.current_step % self.xyz_file_out == 0) {
             try xyzWriteFrame(
-                self.id.items.len,
-                self.e,
-                self.r,
+                .{
+                    .n_atoms = self.id.items.len,
+                    .element = self.e,
+                    .pos = self.r,
+                },
                 self.xyz_file.file.writer(),
             );
         }
@@ -443,9 +449,11 @@ pub const System = struct {
         // Write vel file
         if (self.vel_file_out > 0 and self.current_step % self.vel_file_out == 0) {
             try velWriteFrame(
-                self.id,
-                self.v,
-                @intToFloat(Real, self.current_step) * self.integrator.dt,
+                .{
+                    .id = self.id,
+                    .vel = self.v,
+                    .time = @intToFloat(Real, self.current_step) * self.integrator.dt,
+                },
                 self.vel_file.file.writer(),
             );
         }
