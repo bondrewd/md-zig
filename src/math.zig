@@ -1,23 +1,14 @@
-const la = @import("la-zig/src/la.zig");
+pub const v = @import("math/v.zig");
+pub const V = v.V;
+pub const m = @import("math/m.zig");
+pub const M = m.M;
 const Real = @import("config.zig").Real;
 
-// Vector type
-pub const V3 = la.types.V(Real, 3);
-// Matrix type
-pub const M3x3 = la.types.M(Real, 3, 3);
-
 // Wrap vector inside box
-pub fn wrap(v: V3, box: V3) V3 {
-    var wrapped = v;
-
-    var i: usize = 0;
-    while (i < 3) : (i += 1) {
-        if (v.items[i] > 0.5 * box.items[i]) {
-            wrapped.items[i] -= box.items[i];
-        } else if (v.items[i] < -0.5 * box.items[i]) {
-            wrapped.items[i] += box.items[i];
-        }
-    }
-
-    return wrapped;
+pub fn wrap(vec: V, box: V) V {
+    return .{
+        .x = if (vec.x > 0.5 * box.x) vec.x - box.x else if (vec.x < -0.5 * box.x) vec.x + box.x else vec.x,
+        .y = if (vec.y > 0.5 * box.y) vec.y - box.y else if (vec.y < -0.5 * box.y) vec.y + box.y else vec.y,
+        .z = if (vec.z > 0.5 * box.z) vec.z - box.z else if (vec.z < -0.5 * box.z) vec.z + box.z else vec.z,
+    };
 }

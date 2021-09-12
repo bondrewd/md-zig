@@ -1,14 +1,14 @@
 const std = @import("std");
 
 const math = @import("math.zig");
-const V3 = math.V3;
-const M3x3 = math.M3x3;
+const V = math.V;
+const M = math.M;
 
 const Real = @import("config.zig").Real;
 const Pair = @import("neighbor_list.zig").Pair;
 const System = @import("system.zig").System;
 
-pub fn lennardJonesForceInteraction(system: *System, t_f: []V3, t_virial: *M3x3, t_id: usize) void {
+pub fn lennardJonesForceInteraction(system: *System, t_f: []V, t_virial: *M, t_id: usize) void {
     // Calculate pairs to work with
     const n_pairs = system.neighbor_list.pairs.len;
     const n_pairs_per_thread = (n_pairs + system.n_threads - 1) / system.n_threads;
@@ -34,9 +34,9 @@ pub fn lennardJonesForceInteraction(system: *System, t_f: []V3, t_virial: *M3x3,
         const s2 = s * s;
         const cut_off2 = 6.25 * s2;
 
-        var rij = V3.subVV(ri, rj);
+        var rij = math.v.sub(ri, rj);
         if (system.use_pbc) rij = math.wrap(rij, system.region);
-        const rij2 = V3.dotVV(rij, rij);
+        const rij2 = math.v.dot(rij, rij);
 
         if (rij2 < cut_off2) {
             const c2 = s2 / rij2;
@@ -45,13 +45,13 @@ pub fn lennardJonesForceInteraction(system: *System, t_f: []V3, t_virial: *M3x3,
             const c14 = c8 * c4 * c2;
 
             const f = 48.0 * e * (c14 - 0.5 * c8) / s2;
-            const force = V3.mulVS(rij, f);
+            const force = math.v.scale(rij, f);
 
-            t_f[i].addV(force);
-            t_f[j].subV(force);
+            t_f[i] = math.v.add(t_f[i], force);
+            t_f[j] = math.v.sub(t_f[i], force);
 
-            const rijf = V3.outerVV(rij, force);
-            t_virial.addM(rijf);
+            const rijf = math.v.direct(rij, force);
+            t_virial.* = math.m.add(t_virial.*, rijf);
         }
     }
 }
@@ -75,9 +75,9 @@ pub fn lennardJonesEnergyInteraction(system: *System) void {
         const s2 = s * s;
         const cut_off2 = 6.25 * s2;
 
-        var rij = V3.subVV(ri, rj);
+        var rij = math.v.sub(ri, rj);
         if (system.use_pbc) rij = math.wrap(rij, system.region);
-        const rij2 = V3.dotVV(rij, rij);
+        const rij2 = math.v.dot(rij, rij);
 
         if (rij2 < cut_off2) {
             const c2 = s2 / rij2;

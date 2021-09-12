@@ -4,7 +4,7 @@ const File = std.fs.File;
 const Reader = File.Reader;
 const Writer = File.Writer;
 
-const V = @import("../math.zig").V3;
+const V = @import("../math.zig").V;
 const Real = @import("../config.zig").Real;
 const MdFile = @import("md_file.zig").MdFile;
 
@@ -14,23 +14,23 @@ const Allocator = std.mem.Allocator;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
 pub const Frame = struct {
-    id: ArrayList(u64),
-    pos: ArrayList(V),
+    indexes: ArrayList(u32),
+    positions: ArrayList(V),
     time: Real,
 
     const Self = @This();
 
     pub fn init(allocator: *Allocator) Self {
         return Self{
-            .id = ArrayList(u64).init(allocator),
-            .pos = ArrayList(V).init(allocator),
+            .indexes = ArrayList(u32).init(allocator),
+            .positions = ArrayList(V).init(allocator),
             .time = 0.0,
         };
     }
 
     pub fn deinit(self: *Self) void {
-        self.id.deinit();
-        self.pos.deinit();
+        self.indexes.deinit();
+        self.positions.deinit();
     }
 };
 
@@ -88,7 +88,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
         var tokens = std.mem.tokenize(u8, line, " ");
 
         // Parse index
-        frame.?.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+        frame.?.indexes.append(if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
             stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
@@ -121,7 +121,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         };
 
-        frame.?.pos.append(V.fromArray(.{ x, y, z })) catch return error.OutOfMemory;
+        frame.?.positions.append(.{ .x = x, .y = y, .z = z }) catch return error.OutOfMemory;
     }
 
     if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
@@ -132,15 +132,15 @@ pub fn writeFrame(frame: Frame, w: Writer) WriteDataError!void {
     // Print time
     w.print("time {d:>12.3}\n", .{frame.time}) catch return error.WriteLine;
     // Print units
-    w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "id", "x", "y", "z" }) catch return error.WriteLine;
+    w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "index", "x", "y", "z" }) catch return error.WriteLine;
     w.print("#{s:>11}  {s:>12}  {s:>12}  {s:>12}\n", .{ "-", "nm", "nm", "nm" }) catch return error.WriteLine;
     // Print positions
-    for (frame.id.items) |id, i| {
+    for (frame.indexes.items) |index, i| {
         w.print("{d:>12}  {d:>12.5}  {d:>12.5}  {d:>12.5}\n", .{
-            id,
-            frame.pos.items[i].items[0],
-            frame.pos.items[i].items[1],
-            frame.pos.items[i].items[2],
+            index,
+            frame.positions.items[i].x,
+            frame.positions.items[i].y,
+            frame.positions.items[i].z,
         }) catch return error.WriteLine;
     }
 }

@@ -4,7 +4,7 @@ const File = std.fs.File;
 const Reader = File.Reader;
 const Writer = File.Writer;
 
-const V = @import("../math.zig").V3;
+const V = @import("../math.zig").V;
 const Real = @import("../config.zig").Real;
 const MdFile = @import("md_file.zig").MdFile;
 
@@ -14,7 +14,7 @@ const Allocator = std.mem.Allocator;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 
 pub const Frame = struct {
-    id: ArrayList(u64),
+    id: ArrayList(u32),
     vel: ArrayList(V),
     time: Real,
 
@@ -22,7 +22,7 @@ pub const Frame = struct {
 
     pub fn init(allocator: *Allocator) Self {
         return Self{
-            .id = ArrayList(u64).init(allocator),
+            .id = ArrayList(u32).init(allocator),
             .vel = ArrayList(V).init(allocator),
             .time = 0.0,
         };
@@ -88,7 +88,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
         var tokens = std.mem.tokenize(u8, line, " ");
 
         // Parse index
-        frame.?.id.append(if (tokens.next()) |token| std.fmt.parseInt(u64, token, 10) catch {
+        frame.?.id.append(if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
             stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
@@ -121,7 +121,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         };
 
-        frame.?.vel.append(V.fromArray(.{ vx, vy, vz })) catch return error.OutOfMemory;
+        frame.?.vel.append(.{ .x = vx, .y = vy, .z = vz }) catch return error.OutOfMemory;
     }
 
     if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
@@ -138,9 +138,9 @@ pub fn writeFrame(frame: Frame, w: Writer) WriteDataError!void {
     for (frame.id.items) |id, i| {
         w.print("{d:>12}  {e:>12.5}  {e:>12.5}  {e:>12.5}\n", .{
             id,
-            frame.vel.items[i].items[0],
-            frame.vel.items[i].items[1],
-            frame.vel.items[i].items[2],
+            frame.vel.items[i].x,
+            frame.vel.items[i].y,
+            frame.vel.items[i].z,
         }) catch return error.WriteLine;
     }
 }

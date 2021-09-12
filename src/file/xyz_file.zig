@@ -4,7 +4,7 @@ const File = std.fs.File;
 const Reader = File.Reader;
 const Writer = File.Writer;
 
-const V = @import("../math.zig").V3;
+const V = @import("../math.zig").V;
 const Real = @import("../config.zig").Real;
 const MdFile = @import("md_file.zig").MdFile;
 const Element = @import("../constant.zig").Element;
@@ -16,7 +16,7 @@ const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 const elementFromString = @import("../constant.zig").elementFromString;
 
 pub const Frame = struct {
-    n_atoms: u64,
+    n_atoms: u32,
     element: ArrayList(Element),
     pos: ArrayList(V),
 
@@ -81,7 +81,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
                 // Parse number
                 const n_atoms = std.mem.trim(u8, line, " ");
-                frame.?.n_atoms = std.fmt.parseInt(u64, n_atoms, 10) catch {
+                frame.?.n_atoms = std.fmt.parseInt(u32, n_atoms, 10) catch {
                     stopWithErrorMsg("Bad number of atoms value {s} in line {s}", .{ n_atoms, line });
                     unreachable;
                 };
@@ -101,7 +101,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                 // Tokenize line
                 var tokens = std.mem.tokenize(u8, line, " ");
 
-                // Parse index
+                // Parse element
                 frame.?.element.append(if (tokens.next()) |token| elementFromString(token) catch {
                     stopWithErrorMsg("Unknown element {s} in line {s}", .{ token, line });
                     unreachable;
@@ -137,7 +137,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
                 // Update state
                 state = .NumberOfAtoms;
-                frame.?.pos.append(V.fromArray(.{ x, y, z })) catch return error.OutOfMemory;
+                frame.?.pos.append(.{ .x = x, .y = y, .z = z }) catch return error.OutOfMemory;
                 continue;
             },
         }
@@ -156,9 +156,9 @@ pub fn writeFrame(frame: Frame, w: Writer) WriteDataError!void {
     for (frame.element.items) |e, i| {
         w.print("{s:<12}  {d:>12.5}  {d:>12.5}  {d:>12.5}\n", .{
             e.toString(),
-            frame.pos.items[i].items[0],
-            frame.pos.items[i].items[1],
-            frame.pos.items[i].items[2],
+            frame.pos.items[i].x,
+            frame.pos.items[i].y,
+            frame.pos.items[i].z,
         }) catch return error.WriteLine;
     }
 }

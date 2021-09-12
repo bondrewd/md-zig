@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const math = @import("math.zig");
-const V3 = math.V3;
 
 const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
@@ -37,13 +36,13 @@ pub const NeighborList = struct {
             while (j < system.r.items.len) : (j += 1) {
                 const rj = system.r.items[j];
 
-                var rij = V3.subVV(ri, rj);
+                var rij = math.v.sub(ri, rj);
                 if (system.use_pbc) rij = math.wrap(rij, system.region);
-                const rij2 = V3.dotVV(rij, rij);
+                const rij2 = math.v.dot(rij, rij);
 
                 if (rij2 < cutoff2) try pairs.append(.{
-                    .i = @intCast(u64, i),
-                    .j = @intCast(u64, j),
+                    .i = @intCast(u32, i),
+                    .j = @intCast(u32, j),
                 });
             }
         }

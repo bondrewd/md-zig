@@ -3,8 +3,8 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 
 const math = @import("math.zig");
-const V = math.V3;
-const M3x3 = math.M3x3;
+const V = math.V;
+const M = math.M;
 
 const kb = @import("constant.zig").kb;
 const Element = @import("constant.zig").Element;
@@ -33,7 +33,7 @@ pub const System = struct {
     threads: []std.Thread = undefined,
     n_threads: usize = undefined,
     // System atom properties
-    id: ArrayList(u64) = undefined,
+    id: ArrayList(u32) = undefined,
     r: ArrayList(V) = undefined,
     v: ArrayList(V) = undefined,
     f: ArrayList(V) = undefined,
@@ -47,8 +47,8 @@ pub const System = struct {
     neighbor_list: NeighborList = undefined,
     neighbor_list_update_step: u64 = undefined,
     // System properties
-    virial: M3x3 = undefined,
-    pressure: M3x3 = undefined,
+    virial: M = undefined,
+    pressure: M = undefined,
     temperature: Real = undefined,
     energy: struct { kinetic: Real, potential: Real } = undefined,
     // System box
@@ -81,7 +81,7 @@ pub const System = struct {
         // Set region
         const bc = std.mem.trim(u8, input.boundary_type, " ");
         if (std.mem.eql(u8, bc, "PBC")) {
-            system.region = V.fromArray(.{ input.region_x, input.region_y, input.region_z });
+            system.region = .{ .x = input.region_x, .y = input.region_y, .z = input.region_z };
             system.use_pbc = true;
         } else {
             system.region = V.zeros();
@@ -96,10 +96,10 @@ pub const System = struct {
         try pos_file.readData();
 
         // Initialize ids and positions
-        var id_slice = pos_file.data.frames.items[0].id.toOwnedSlice();
-        system.id = ArrayList(u64).fromOwnedSlice(allocator, id_slice);
+        var id_slice = pos_file.data.frames.items[0].indexes.toOwnedSlice();
+        system.id = ArrayList(u32).fromOwnedSlice(allocator, id_slice);
 
-        var r_slice = pos_file.data.frames.items[0].pos.toOwnedSlice();
+        var r_slice = pos_file.data.frames.items[0].positions.toOwnedSlice();
         system.r = ArrayList(V).fromOwnedSlice(allocator, r_slice);
 
         // Initialize forces and velocities arrays
@@ -126,15 +126,14 @@ pub const System = struct {
         system.q = ArrayList(f64).fromOwnedSlice(allocator, q_slice);
 
         // Initialize virial
-        system.virial = M3x3.zeros();
+        system.virial = math.M.zeros();
 
         // Initialize pressure
-        system.pressure = M3x3.zeros();
+        system.pressure = math.M.zeros();
 
         // Initialize force field
-        var force_interactions = std.ArrayList(fn (*System, []V, *M3x3, usize) void).init(allocator);
+        var force_interactions = std.ArrayList(fn (*System, []V, *M, usize) void).init(allocator);
         defer force_interactions.deinit();
-        //var energy_interactions = std.ArrayList(fn (*System, []V, *M3x3, usize) void).init(allocator);
         var energy_interactions = std.ArrayList(fn (*System) void).init(allocator);
         defer energy_interactions.deinit();
 
@@ -218,7 +217,7 @@ pub const System = struct {
             try xyz_file.createFile(xyz_file_name, .{});
             try xyzWriteFrame(
                 .{
-                    .n_atoms = system.id.items.len,
+                    .n_atoms = @intCast(u32, system.id.items.len),
                     .element = system.e,
                     .pos = system.r,
                 },
@@ -276,36 +275,36 @@ pub const System = struct {
             const s = std.math.sqrt(kb * temperature / self.m.items[i]);
 
             // Alpha
-            const a = V.fromArray(.{
-                std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-                std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-                std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-            });
+            const a = .{
+                .x = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+                .y = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+                .z = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+            };
 
             // Beta
-            const b = V.fromArray(.{
-                @cos(2.0 * std.math.pi * rng.float(Real)),
-                @cos(2.0 * std.math.pi * rng.float(Real)),
-                @cos(2.0 * std.math.pi * rng.float(Real)),
-            });
+            const b = .{
+                .x = @cos(2.0 * std.math.pi * rng.float(Real)),
+                .y = @cos(2.0 * std.math.pi * rng.float(Real)),
+                .z = @cos(2.0 * std.math.pi * rng.float(Real)),
+            };
 
             // Assign random velocity
-            const ab = V.mulVV(a, b);
-            self.v.items[i] = V.mulVS(ab, s);
+            const ab = math.v.mul(a, b);
+            self.v.items[i] = math.v.scale(ab, s);
         }
 
         // Calculate scaling factor
         var factor: Real = 0;
-        for (self.v.items) |v, j| factor += self.m.items[j] * V.dotVV(v, v);
+        for (self.v.items) |v, j| factor += self.m.items[j] * math.v.dot(v, v);
         factor = 3.0 * @intToFloat(Real, self.v.items.len) * kb * temperature / factor;
         factor = std.math.sqrt(factor);
 
         // Scale velocities
         i = 0;
-        while (i < self.v.items.len) : (i += 1) self.v.items[i] = V.mulVS(self.v.items[i], factor);
+        while (i < self.v.items.len) : (i += 1) self.v.items[i] = math.v.scale(self.v.items[i], factor);
     }
 
-    fn calculateForceInteractionsThread(system: *Self, t_f: []V, t_virial: *M3x3, t_id: usize) void {
+    fn calculateForceInteractionsThread(system: *Self, t_f: []V, t_virial: *M, t_id: usize) void {
         // Calculate forces
         for (system.ff.force_interactions) |f| f(system, t_f, t_virial, t_id);
     }
@@ -316,7 +315,7 @@ pub const System = struct {
         while (i < self.f.items.len) : (i += 1) self.f.items[i] = V.zeros();
 
         // Reset virial
-        self.virial = M3x3.zeros();
+        self.virial = math.M.zeros();
 
         // Allocate local thread variables
         var t_f = self.allocator.alloc(V, self.n_threads * self.f.items.len) catch {
@@ -325,7 +324,7 @@ pub const System = struct {
         };
         defer self.allocator.free(t_f);
 
-        var t_virial = self.allocator.alloc(M3x3, self.n_threads) catch {
+        var t_virial = self.allocator.alloc(M, self.n_threads) catch {
             stopWithErrorMsg("Could not allocate t_virial array", .{});
             unreachable;
         };
@@ -335,7 +334,7 @@ pub const System = struct {
         i = 0;
         while (i < self.n_threads * self.f.items.len) : (i += 1) t_f[i] = V.zeros();
         i = 0;
-        while (i < self.n_threads) : (i += 1) t_virial[i] = M3x3.zeros();
+        while (i < self.n_threads) : (i += 1) t_virial[i] = M.zeros();
 
         // Calculate forces
         i = 0;
@@ -354,8 +353,8 @@ pub const System = struct {
         // Reduce local thread variables
         i = 0;
         while (i < self.n_threads) : (i += 1) {
-            for (self.f.items) |*f, j| f.addV(t_f[i * self.f.items.len + j]);
-            self.virial.addM(t_virial[i]);
+            for (self.f.items) |*f, j| f.* = math.v.add(f.*, t_f[i * self.f.items.len + j]);
+            self.virial = math.m.add(self.virial, t_virial[i]);
         }
     }
 
@@ -372,7 +371,7 @@ pub const System = struct {
 
         var i: usize = 0;
         while (i < self.v.items.len) : (i += 1) {
-            energy += self.m.items[i] * V.dotVV(self.v.items[i], self.v.items[i]);
+            energy += self.m.items[i] * math.v.dot(self.v.items[i], self.v.items[i]);
         }
 
         self.energy.kinetic = 0.5 * energy;
@@ -386,21 +385,21 @@ pub const System = struct {
 
     pub fn calculatePressure(self: *Self) void {
         // Calculate velocity tensor
-        var v_tensor = M3x3.zeros();
+        var v_tensor = math.M.zeros();
         var i: usize = 0;
         while (i < self.v.items.len) : (i += 1) {
             const v = self.v.items[i];
             const m = self.m.items[i];
-            const vv = V.outerVV(v, v);
-            const vvm = M3x3.mulMS(vv, m);
-            v_tensor.addM(vvm);
+            const vv = math.v.direct(v, v);
+            const vvm = math.m.scale(vv, m);
+            v_tensor = math.m.add(v_tensor, vvm);
         }
 
         // Calculate pressure
-        const vol = self.region.items[0] * self.region.items[1] * self.region.items[2];
-        const tmp = M3x3.addMM(v_tensor, self.virial);
-        const prs = M3x3.divMS(tmp, vol);
-        self.pressure.addM(prs);
+        const vol = self.region.x * self.region.y * self.region.z;
+        const tmp = math.m.add(v_tensor, self.virial);
+        const p = math.m.scale(tmp, 1.0 / vol);
+        self.pressure = math.m.add(self.pressure, p);
     }
 
     pub fn wrap(self: *Self) void {
@@ -438,7 +437,7 @@ pub const System = struct {
         if (self.xyz_file_out > 0 and self.current_step % self.xyz_file_out == 0) {
             try xyzWriteFrame(
                 .{
-                    .n_atoms = self.id.items.len,
+                    .n_atoms = @intCast(u32, self.id.items.len),
                     .element = self.e,
                     .pos = self.r,
                 },
