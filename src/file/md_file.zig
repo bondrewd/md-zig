@@ -7,9 +7,7 @@ const File = std.fs.File;
 const Reader = File.Reader;
 const Writer = File.Writer;
 const OpenFlags = File.OpenFlags;
-const OpenError = File.OpenError;
 const CreateFlags = File.CreateFlags;
-const CreateError = File.CopyRangeError;
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
