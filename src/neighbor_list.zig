@@ -1,20 +1,18 @@
 const std = @import("std");
 
 const math = @import("math.zig");
-
-const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
 
 pub const Pair = struct { i: u64, j: u64 };
 
 pub const NeighborList = struct {
     allocator: *std.mem.Allocator,
-    cutoff: Real,
+    cutoff: f32,
     pairs: []Pair = &[_]Pair{},
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator, cutoff: Real) Self {
+    pub fn init(allocator: *std.mem.Allocator, cutoff: f32) Self {
         return Self{ .allocator = allocator, .cutoff = cutoff };
     }
 

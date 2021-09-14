@@ -4,7 +4,6 @@ const math = @import("math.zig");
 const V = math.V;
 const M = math.M;
 
-const Real = @import("config.zig").Real;
 const Pair = @import("neighbor_list.zig").Pair;
 const System = @import("system.zig").System;
 
@@ -48,7 +47,7 @@ pub fn lennardJonesForceInteraction(system: *System, t_f: []V, t_virial: *M, t_i
             const force = math.v.scale(rij, f);
 
             t_f[i] = math.v.add(t_f[i], force);
-            t_f[j] = math.v.sub(t_f[i], force);
+            t_f[j] = math.v.sub(t_f[j], force);
 
             const rijf = math.v.direct(rij, force);
             t_virial.* = math.m.add(t_virial.*, rijf);

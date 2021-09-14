@@ -1,13 +1,16 @@
 const std = @import("std");
+
 const math = @import("math.zig");
 const V = math.V;
-const Real = @import("config.zig").Real;
+const add = math.v.add;
+const scale = math.v.scale;
+
 const System = @import("system.zig").System;
 const Input = @import("input.zig").MdInputFileParserResult;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 
 pub const Integrator = struct {
-    dt: Real = undefined,
+    dt: f32 = undefined,
     evolveSystem: fn (*System) void = undefined,
 
     const Self = @This();
@@ -42,9 +45,9 @@ pub fn leapFrog(system: *System) void {
     var i: usize = 0;
     while (i < system.r.items.len) : (i += 1) {
         // v(t + dt/2) = v(t) + f(t) * dt/2m
-        system.v.items[i] = math.v.add(system.v.items[i], math.v.scale(system.f.items[i], 0.5 * dt / system.m.items[i]));
+        system.v.items[i] = add(system.v.items[i], scale(system.f.items[i], 0.5 * dt / system.m.items[i]));
         // x(t + dt) = x(t) + v(t + dt/2) * dt
-        system.r.items[i] = math.v.add(system.r.items[i], math.v.scale(system.v.items[i], dt));
+        system.r.items[i] = add(system.r.items[i], scale(system.v.items[i], dt));
     }
 
     // Update forces
@@ -55,6 +58,6 @@ pub fn leapFrog(system: *System) void {
     i = 0;
     while (i < system.r.items.len) : (i += 1) {
         // v(t + dt) = v(t + dt/2) + f(t + dt) * dt/2m
-        system.v.items[i] = math.v.add(system.v.items[i], math.v.scale(system.f.items[i], 0.5 * dt / system.m.items[i]));
+        system.v.items[i] = add(system.v.items[i], scale(system.f.items[i], 0.5 * dt / system.m.items[i]));
     }
 }

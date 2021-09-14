@@ -5,7 +5,6 @@ const Reader = File.Reader;
 const Writer = File.Writer;
 
 const V = @import("../math.zig").V;
-const Real = @import("../config.zig").Real;
 const MdFile = @import("md_file.zig").MdFile;
 const Element = @import("../constant.zig").Element;
 
@@ -111,7 +110,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                 }) catch return error.OutOfMemory;
 
                 // Parse positions
-                const x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                const x = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
                     stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
@@ -119,7 +118,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                     unreachable;
                 };
 
-                const y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                const y = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
                     stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {
@@ -127,7 +126,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                     unreachable;
                 };
 
-                const z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+                const z = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
                     stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
                     unreachable;
                 } else {

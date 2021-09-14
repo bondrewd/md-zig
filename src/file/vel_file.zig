@@ -5,7 +5,6 @@ const Reader = File.Reader;
 const Writer = File.Writer;
 
 const V = @import("../math.zig").V;
-const Real = @import("../config.zig").Real;
 const MdFile = @import("md_file.zig").MdFile;
 
 const ArrayList = std.ArrayList;
@@ -16,7 +15,7 @@ const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 pub const Frame = struct {
     id: ArrayList(u32),
     vel: ArrayList(V),
-    time: Real,
+    time: f32,
 
     const Self = @This();
 
@@ -77,7 +76,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
             // Parse time
             const time = std.mem.trim(u8, line[4..], " ");
-            frame.?.time = std.fmt.parseFloat(Real, time) catch {
+            frame.?.time = std.fmt.parseFloat(f32, time) catch {
                 stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
                 unreachable;
             };
@@ -97,7 +96,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
         }) catch return error.OutOfMemory;
 
         // Parse velocities
-        const vx = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+        const vx = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
             stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
@@ -105,7 +104,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         };
 
-        const vy = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+        const vy = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
             stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
@@ -113,7 +112,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         };
 
-        const vz = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+        const vz = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
             stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
             unreachable;
         } else {

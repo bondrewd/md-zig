@@ -1,7 +1,6 @@
 const std = @import("std");
 const fmt = std.fmt;
 const mem = std.mem;
-const Real = @import("config.zig").Real;
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 
 const ArrayList = std.ArrayList;
@@ -185,7 +184,7 @@ pub fn InputFileParser(comptime config: InputFileParserConfiguration, comptime e
     };
 }
 
-pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParserEntry{
+pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParserEntry{
     .{
         .name = "in_mol_file",
         .entry_type = []u8,
@@ -216,7 +215,7 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
     },
     .{
         .name = "out_xyz_step",
-        .entry_type = u64,
+        .entry_type = u32,
         .section = "OUTPUT",
         .default_value = .{ .int = 0 },
     },
@@ -228,7 +227,7 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
     },
     .{
         .name = "out_vel_step",
-        .entry_type = u64,
+        .entry_type = u32,
         .section = "OUTPUT",
         .default_value = .{ .int = 0 },
     },
@@ -250,7 +249,7 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
     },
     .{
         .name = "time_step",
-        .entry_type = Real,
+        .entry_type = f32,
         .section = "DYNAMICS",
     },
     .{
@@ -265,7 +264,7 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
     },
     .{
         .name = "temperature",
-        .entry_type = Real,
+        .entry_type = f32,
         .section = "DYNAMICS",
     },
     .{
@@ -280,19 +279,19 @@ pub const MdInputFileParser = InputFileParser(.{ .separator = "=" }, [_]InputFil
     },
     .{
         .name = "region_x",
-        .entry_type = Real,
+        .entry_type = f32,
         .section = "BOUNDARY",
     },
     .{
         .name = "region_y",
-        .entry_type = Real,
+        .entry_type = f32,
         .section = "BOUNDARY",
     },
     .{
         .name = "region_z",
-        .entry_type = Real,
+        .entry_type = f32,
         .section = "BOUNDARY",
     },
 });
 
-pub const MdInputFileParserResult = MdInputFileParser.InputFileParserResult;
+pub const Input = InputParser.InputFileParserResult;

@@ -1,5 +1,4 @@
 const std = @import("std");
-const Real = @import("../config.zig").Real;
 const System = @import("../system.zig").System;
 const Input = @import("../input.zig").MdInputFileParserResult;
 const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
@@ -70,7 +69,7 @@ pub const TsFile = struct {
         // Print data
         try w.print(" {d:>12} {d:>12.3} {d:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5} {e:>12.5}\n", .{
             system.current_step,
-            @intToFloat(Real, system.current_step) * system.integrator.dt,
+            @intToFloat(f32, system.current_step) * system.integrator.dt,
             system.temperature,
             system.energy.kinetic,
             system.energy.potential,

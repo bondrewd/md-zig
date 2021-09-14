@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const red = @import("config.zig").red;
-const bold = @import("config.zig").bold;
-const reset = @import("config.zig").reset;
+const red = @import("ansi.zig").red;
+const bold = @import("ansi.zig").bold;
+const reset = @import("ansi.zig").reset;
 
 pub fn stopWithErrorMsg(comptime error_msg: []const u8, args: anytype) void {
     // Get stdout

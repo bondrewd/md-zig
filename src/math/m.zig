@@ -1,18 +1,17 @@
 const std = @import("std");
-const Real = @import("../config.zig").Real;
 
 pub const M = struct {
-    xx: Real,
-    xy: Real,
-    xz: Real,
+    xx: f32,
+    xy: f32,
+    xz: f32,
 
-    yx: Real,
-    yy: Real,
-    yz: Real,
+    yx: f32,
+    yy: f32,
+    yz: f32,
 
-    zx: Real,
-    zy: Real,
-    zz: Real,
+    zx: f32,
+    zy: f32,
+    zz: f32,
 
     const Self = @This();
 
@@ -129,7 +128,7 @@ pub fn div(m1: M, m2: M) M {
     };
 }
 
-pub fn scale(m1: M, s: Real) M {
+pub fn scale(m1: M, s: f32) M {
     return .{
         .xx = m1.xx * s,
         .xy = m1.xy * s,
@@ -145,7 +144,7 @@ pub fn scale(m1: M, s: Real) M {
     };
 }
 
-pub fn diagonal(m: M) [3]Real {
+pub fn diagonal(m: M) [3]f32 {
     return .{ m.xx, m.yy, m.zz };
 }
 
@@ -165,7 +164,7 @@ pub fn transpose(m: M) M {
     };
 }
 
-pub fn det(m: M) Real {
+pub fn det(m: M) f32 {
     const a = m.xx * m.yy * m.zz + m.xy * m.yz * m.zx + m.xz * m.yx * m.zy;
     const b = m.xz * m.yy * m.zx + m.xy * m.yx * m.zz + m.xx * m.yz * m.zy;
     return a - b;

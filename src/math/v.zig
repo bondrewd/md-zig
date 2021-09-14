@@ -1,12 +1,11 @@
 const std = @import("std");
-const Real = @import("../config.zig").Real;
 
 const M = @import("m.zig").M;
 
 pub const V = struct {
-    x: Real,
-    y: Real,
-    z: Real,
+    x: f32,
+    y: f32,
+    z: f32,
 
     const Self = @This();
 
@@ -51,7 +50,7 @@ pub fn div(v1: V, v2: V) V {
     };
 }
 
-pub fn scale(v: V, s: Real) V {
+pub fn scale(v: V, s: f32) V {
     return .{
         .x = v.x * s,
         .y = v.y * s,
@@ -59,11 +58,11 @@ pub fn scale(v: V, s: Real) V {
     };
 }
 
-pub fn dot(v1: V, v2: V) Real {
+pub fn dot(v1: V, v2: V) f32 {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 
-pub fn norm(v: V) Real {
+pub fn norm(v: V) f32 {
     return std.math.sqrt(dot(v, v));
 }
 

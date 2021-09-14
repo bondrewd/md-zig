@@ -1,7 +1,7 @@
 const std = @import("std");
 const System = @import("system.zig").System;
+const InputParser = @import("input.zig").InputParser;
 const ProgressBar = @import("progress_bar.zig").ProgressBar;
-const MdInputFileParser = @import("input.zig").MdInputFileParser;
 
 pub fn main() anyerror!void {
     // Get allocator
@@ -14,8 +14,8 @@ pub fn main() anyerror!void {
     defer ArgParser.deinitArgs(args);
 
     // Parse input file
-    const input = try MdInputFileParser.parse(allocator, args.input);
-    defer MdInputFileParser.deinitInput(allocator, input);
+    const input = try InputParser.parse(allocator, args.input);
+    defer InputParser.deinitInput(allocator, input);
 
     // Init system
     var system = try System.init(allocator, input);

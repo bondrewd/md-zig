@@ -35,6 +35,9 @@ pub fn MdFile(
 
         pub fn deinit(self: *Self) void {
             self.data.deinit();
+        }
+
+        pub fn close(self: *Self) void {
             self.file.close();
         }
 

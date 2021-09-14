@@ -1,0 +1,6 @@
+[ PROPERTIES ]
+#  index     name     mass   charge
+#      -        -    g/mol        e
+       1       A1   1.0000   -0.500
+       2       B2   2.0000    0.000
+       3       C3   3.0000    0.500

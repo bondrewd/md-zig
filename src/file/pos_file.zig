@@ -5,7 +5,6 @@ const Reader = File.Reader;
 const Writer = File.Writer;
 
 const V = @import("../math.zig").V;
-const Real = @import("../config.zig").Real;
 const MdFile = @import("md_file.zig").MdFile;
 
 const ArrayList = std.ArrayList;
@@ -16,7 +15,7 @@ const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
 pub const Frame = struct {
     indexes: ArrayList(u32),
     positions: ArrayList(V),
-    time: Real,
+    time: f32,
 
     const Self = @This();
 
@@ -77,7 +76,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
             // Parse time
             const time = std.mem.trim(u8, line[4..], " ");
-            frame.?.time = std.fmt.parseFloat(Real, time) catch {
+            frame.?.time = std.fmt.parseFloat(f32, time) catch {
                 stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
                 unreachable;
             };
@@ -97,7 +96,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
         }) catch return error.OutOfMemory;
 
         // Parse positions
-        const x = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+        const x = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
             stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
@@ -105,7 +104,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         };
 
-        const y = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+        const y = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
             stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
             unreachable;
         } else {
@@ -113,7 +112,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             unreachable;
         };
 
-        const z = if (tokens.next()) |token| std.fmt.parseFloat(Real, token) catch {
+        const z = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
             stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
             unreachable;
         } else {

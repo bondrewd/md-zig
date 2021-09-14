@@ -2,7 +2,6 @@ pub const v = @import("math/v.zig");
 pub const V = v.V;
 pub const m = @import("math/m.zig");
 pub const M = m.M;
-const Real = @import("config.zig").Real;
 
 // Wrap vector inside box
 pub fn wrap(vec: V, box: V) V {

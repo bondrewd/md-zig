@@ -1,5 +1,4 @@
 const std = @import("std");
-const Real = @import("config.zig").Real;
 const System = @import("system.zig").System;
 
 const math = @import("math.zig");
@@ -8,8 +7,8 @@ const M = math.M;
 
 pub const LennardJonesParameters = struct {
     id: u64,
-    e: Real,
-    s: Real,
+    e: f32,
+    s: f32,
 };
 
 pub const ForceField = struct {

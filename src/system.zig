@@ -1,460 +1,394 @@
 const std = @import("std");
 
-const ArrayList = std.ArrayList;
+const Input = @import("input.zig").Input;
 
 const math = @import("math.zig");
 const V = math.V;
 const M = math.M;
 
-const kb = @import("constant.zig").kb;
-const Element = @import("constant.zig").Element;
-const Real = @import("config.zig").Real;
-const TsFile = @import("file.zig").TsFile;
-const XyzFile = @import("file.zig").XyzFile;
-const xyzWriteFrame = @import("file/xyz_file.zig").writeFrame;
 const PosFile = @import("file.zig").PosFile;
 const MolFile = @import("file.zig").MolFile;
+const XyzFile = @import("file.zig").XyzFile;
 const VelFile = @import("file.zig").VelFile;
+
+const xyzWriteFrame = @import("file/xyz_file.zig").writeFrame;
 const velWriteFrame = @import("file/vel_file.zig").writeFrame;
-const ForceField = @import("ff.zig").ForceField;
-const Integrator = @import("integrator.zig").Integrator;
-const Input = @import("input.zig").MdInputFileParserResult;
-const NeighborList = @import("neighbor_list.zig").NeighborList;
+
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
+
 const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
 
-const LennardJonesParameters = @import("ff.zig").LennardJonesParameters;
-const lennardJonesForceInteraction = @import("interaction.zig").lennardJonesForceInteraction;
-const lennardJonesEnergyInteraction = @import("interaction.zig").lennardJonesEnergyInteraction;
-
-pub const System = struct {
-    // Configuration
-    allocator: *std.mem.Allocator = undefined,
-    rng: std.rand.DefaultPrng = undefined,
-    threads: []std.Thread = undefined,
-    n_threads: usize = undefined,
-    // System atom properties
-    id: ArrayList(u32) = undefined,
-    r: ArrayList(V) = undefined,
-    v: ArrayList(V) = undefined,
-    f: ArrayList(V) = undefined,
-    m: ArrayList(Real) = undefined,
-    q: ArrayList(Real) = undefined,
-    e: ArrayList(Element) = undefined,
-    // Integration variables
-    ff: ForceField = undefined,
-    current_step: u64 = undefined,
-    integrator: Integrator = undefined,
-    neighbor_list: NeighborList = undefined,
-    neighbor_list_update_step: u64 = undefined,
-    // System properties
-    virial: M = undefined,
-    pressure: M = undefined,
-    temperature: Real = undefined,
-    energy: struct { kinetic: Real, potential: Real } = undefined,
-    // System box
-    region: V = undefined,
-    use_pbc: bool = undefined,
-    // Output files
-    ts_file: TsFile = undefined,
-    ts_file_out: u64 = undefined,
-    xyz_file: XyzFile = undefined,
-    xyz_file_out: u64 = undefined,
-    vel_file: VelFile = undefined,
-    vel_file_out: u64 = undefined,
+pub const Time = struct {
+    current_step: u32 = 0,
+    current_time: f32 = 0.0,
+    dt: f32 = 0.0,
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator, input: Input) !Self {
-        // Declare system
-        var system = System{};
+    pub fn advance(self: *Self, steps: u32) void {
+        var i: usize = 0;
+        while (i < steps) : (i += 1) self.current_step += 1;
+        self.current_time = @intToFloat(f32, self.current_step) * self.dt;
+    }
+};
 
-        // Set allocator
-        system.allocator = allocator;
+pub const Atoms = struct {
+    allocator: *Allocator,
+    indexes: []u32,
+    positions: []V,
+    velocities: []V,
+    forces: []V,
+    masses: []f32,
+    charges: []f32,
+    names: [][]u8,
 
-        // Init threads
-        system.n_threads = input.n_threads;
-        system.threads = try allocator.alloc(std.Thread, system.n_threads);
+    pub const Self = @This();
 
-        // Set current step
-        system.current_step = 0;
+    fn order(context: void, lhs: u32, rhs: u32) std.math.Order {
+        _ = context;
+        return std.math.order(lhs, rhs);
+    }
 
-        // Set region
-        const bc = std.mem.trim(u8, input.boundary_type, " ");
-        if (std.mem.eql(u8, bc, "PBC")) {
-            system.region = .{ .x = input.region_x, .y = input.region_y, .z = input.region_z };
-            system.use_pbc = true;
-        } else {
-            system.region = V.zeros();
-            system.use_pbc = false;
-        }
-
-        // Parse pos file
-        var pos_file_name = std.mem.trim(u8, input.in_pos_file, " ");
+    pub fn init(allocator: *Allocator, input: Input) !Self {
+        // Read position file first frame
         var pos_file = PosFile.init(allocator);
         defer pos_file.deinit();
-        try pos_file.openFile(pos_file_name, .{});
+        try pos_file.openFile(input.in_pos_file, .{});
+        defer pos_file.close();
         try pos_file.readData();
 
-        // Initialize ids and positions
-        var id_slice = pos_file.data.frames.items[0].indexes.toOwnedSlice();
-        system.id = ArrayList(u32).fromOwnedSlice(allocator, id_slice);
-
-        var r_slice = pos_file.data.frames.items[0].positions.toOwnedSlice();
-        system.r = ArrayList(V).fromOwnedSlice(allocator, r_slice);
-
-        // Initialize forces and velocities arrays
-        system.v = try ArrayList(V).initCapacity(allocator, system.r.items.len);
-        for (system.r.items) |_| try system.v.append(V.zeros());
-        system.f = try ArrayList(V).initCapacity(allocator, system.r.items.len);
-        for (system.r.items) |_| try system.f.append(V.zeros());
-
-        // Wrap system
-        system.wrap();
-
-        // Parse mol file
-        var mol_file_name = std.mem.trim(u8, input.in_mol_file, " ");
+        // Read properties from mol file
         var mol_file = MolFile.init(allocator);
         defer mol_file.deinit();
-        try mol_file.openFile(mol_file_name, .{});
+        try mol_file.openFile(input.in_mol_file, .{});
+        defer mol_file.close();
         try mol_file.readData();
 
-        // Initialize mass and charge
-        var m_slice = mol_file.data.properties.mass.toOwnedSlice();
-        system.m = ArrayList(f64).fromOwnedSlice(allocator, m_slice);
-
-        var q_slice = mol_file.data.properties.charge.toOwnedSlice();
-        system.q = ArrayList(f64).fromOwnedSlice(allocator, q_slice);
-
-        // Initialize virial
-        system.virial = math.M.zeros();
-
-        // Initialize pressure
-        system.pressure = math.M.zeros();
-
-        // Initialize force field
-        var force_interactions = std.ArrayList(fn (*System, []V, *M, usize) void).init(allocator);
-        defer force_interactions.deinit();
-        var energy_interactions = std.ArrayList(fn (*System) void).init(allocator);
-        defer energy_interactions.deinit();
-
-        var neighbor_list_cutoff: Real = 0.0;
-
-        // --> Lennard-Jones interaction
-        if (mol_file.data.lennard_jones.id.items.len > 0) {
-            var lj_parameters = ArrayList(LennardJonesParameters).init(allocator);
-            defer lj_parameters.deinit();
-            for (mol_file.data.lennard_jones.id.items) |id, i| {
-                try lj_parameters.append(.{
-                    .id = id,
-                    .e = mol_file.data.lennard_jones.e.items[i],
-                    .s = mol_file.data.lennard_jones.s.items[i],
-                });
-            }
-            system.ff.lennard_jones_parameters = lj_parameters.toOwnedSlice();
-            try force_interactions.append(lennardJonesForceInteraction);
-            try energy_interactions.append(lennardJonesEnergyInteraction);
-            // Cutoff for neighbor list
-            for (system.ff.lennard_jones_parameters) |para| {
-                const cutoff = 2.5 * para.s + 0.3 * para.s;
-                if (neighbor_list_cutoff < cutoff) neighbor_list_cutoff = cutoff;
-            }
+        // Check match between number pos and mol properties
+        const n_pos_entries = pos_file.data.frames.items[0].indexes.items.len;
+        const n_mol_entries = mol_file.data.properties.indexes.items.len;
+        if (n_pos_entries > n_mol_entries) {
+            // error
+        } else if (n_pos_entries < n_mol_entries) {
+            // warning
         }
+        const n_atoms = n_pos_entries;
 
-        system.ff.force_interactions = force_interactions.toOwnedSlice();
-        system.ff.energy_interactions = energy_interactions.toOwnedSlice();
+        // Allocate slices
+        var indexes = try allocator.alloc(u32, n_atoms);
+        var positions = try allocator.alloc(V, n_atoms);
+        var velocities = try allocator.alloc(V, n_atoms);
+        var forces = try allocator.alloc(V, n_atoms);
+        var masses = try allocator.alloc(f32, n_atoms);
+        var charges = try allocator.alloc(f32, n_atoms);
+        var names = try allocator.alloc([]u8, n_atoms);
 
-        // Initialize neighbor list
-        system.neighbor_list = NeighborList.init(allocator, neighbor_list_cutoff);
-        system.neighbor_list_update_step = input.neighbor_list_step;
-        try system.neighbor_list.update(&system);
+        // Copy information from pos file
+        std.mem.copy(u32, indexes, pos_file.data.frames.items[0].indexes.items);
+        std.mem.copy(V, positions, pos_file.data.frames.items[0].positions.items);
 
-        // Set rng
-        var seed = if (input.rng_seed > 0) input.rng_seed else blk: {
-            var s: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&s));
-            break :blk s;
-        };
-        system.rng = std.rand.DefaultPrng.init(seed);
-
-        // Initialize velocities
-        system.initVelocities(input.temperature);
-
-        // Initialize forces
-        system.calculateForceInteractions();
-
-        // Initialize energies
-        system.calculateEnergyInteractions();
-        system.calculateKineticEnergy();
-
-        // Initialize temperature
-        system.calculateTemperature();
-
-        // Initialize pressure
-        system.calculatePressure();
-
-        // Initialize integrator
-        system.integrator = Integrator.init(input);
-
-        // TS output file
-        if (input.out_ts_step > 0) {
-            var ts_file_name = std.mem.trim(u8, input.out_ts_file, " ");
-            var ts_file = TsFile.init(allocator);
-            try ts_file.createFile(ts_file_name, .{});
-            try ts_file.printDataHeader();
-            try ts_file.printDataFromSystem(&system);
-            system.ts_file = ts_file;
-            system.ts_file_out = input.out_ts_step;
-        }
-
-        // XYZ output file
-        // TODO: temporal fix until mol file is refactored
-        system.e = try ArrayList(Element).initCapacity(allocator, system.r.items.len);
-        for (system.r.items) |_| try system.e.append(.Ar);
-
-        if (input.out_xyz_step > 0) {
-            var xyz_file_name = std.mem.trim(u8, input.out_xyz_file, " ");
-            var xyz_file = XyzFile.init(allocator);
-            try xyz_file.createFile(xyz_file_name, .{});
-            try xyzWriteFrame(
-                .{
-                    .n_atoms = @intCast(u32, system.id.items.len),
-                    .element = system.e,
-                    .pos = system.r,
-                },
-                xyz_file.file.writer(),
-            );
-            system.xyz_file = xyz_file;
-            system.xyz_file_out = input.out_xyz_step;
-        }
-
-        // Vel output file
-        if (input.out_vel_step > 0) {
-            var vel_file_name = std.mem.trim(u8, input.out_vel_file, " ");
-            var vel_file = VelFile.init(allocator);
-            try vel_file.createFile(vel_file_name, .{});
-            try velWriteFrame(
-                .{
-                    .id = system.id,
-                    .vel = system.v,
-                    .time = @intToFloat(Real, system.current_step) * system.integrator.dt,
-                },
-                vel_file.file.writer(),
-            );
-            system.vel_file = vel_file;
-            system.vel_file_out = input.out_vel_step;
-        }
-
-        return system;
-    }
-
-    pub fn deinit(self: *Self) void {
-        self.id.deinit();
-        self.r.deinit();
-        self.v.deinit();
-        self.f.deinit();
-        self.m.deinit();
-        self.q.deinit();
-        self.e.deinit();
-        self.allocator.free(self.ff.force_interactions);
-        self.allocator.free(self.ff.energy_interactions);
-        self.allocator.free(self.neighbor_list.pairs);
-        self.vel_file.deinit();
-        self.xyz_file.deinit();
-        self.allocator.free(self.threads);
-    }
-
-    pub fn initVelocities(self: *Self, temperature: Real) void {
-        // Get rng
-        const rng = &self.rng.random;
-
-        // Initialize with random velocities
-        var i: usize = 0;
-        while (i < self.v.items.len) : (i += 1) {
-
-            // Sigma
-            const s = std.math.sqrt(kb * temperature / self.m.items[i]);
-
-            // Alpha
-            const a = .{
-                .x = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-                .y = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
-                .z = std.math.sqrt(-2.0 * std.math.ln(rng.float(Real))),
+        // Copy information from mol file matching pos file order
+        for (indexes) |index, i| {
+            // Linear search of index in mol file
+            const j = for (mol_file.data.properties.indexes.items) |mol_index, j| {
+                if (index == mol_index) break j;
+            } else {
+                //error
+                return error.NotFound;
             };
-
-            // Beta
-            const b = .{
-                .x = @cos(2.0 * std.math.pi * rng.float(Real)),
-                .y = @cos(2.0 * std.math.pi * rng.float(Real)),
-                .z = @cos(2.0 * std.math.pi * rng.float(Real)),
-            };
-
-            // Assign random velocity
-            const ab = math.v.mul(a, b);
-            self.v.items[i] = math.v.scale(ab, s);
+            // Set mass
+            masses[i] = mol_file.data.properties.masses.items[j];
+            // Set charge
+            charges[i] = mol_file.data.properties.charges.items[j];
+            // Set name
+            const name_len = mol_file.data.properties.names.items[j].len;
+            names[i] = try allocator.alloc(u8, name_len);
+            std.mem.copy(u8, names[i], mol_file.data.properties.names.items[j]);
         }
 
-        // Calculate scaling factor
-        var factor: Real = 0;
-        for (self.v.items) |v, j| factor += self.m.items[j] * math.v.dot(v, v);
-        factor = 3.0 * @intToFloat(Real, self.v.items.len) * kb * temperature / factor;
-        factor = std.math.sqrt(factor);
+        // Initialize velocities to 0
+        std.mem.set(V, velocities, V.zeros());
 
-        // Scale velocities
-        i = 0;
-        while (i < self.v.items.len) : (i += 1) self.v.items[i] = math.v.scale(self.v.items[i], factor);
-    }
+        // Initialize forces to 0
+        std.mem.set(V, forces, V.zeros());
 
-    fn calculateForceInteractionsThread(system: *Self, t_f: []V, t_virial: *M, t_id: usize) void {
-        // Calculate forces
-        for (system.ff.force_interactions) |f| f(system, t_f, t_virial, t_id);
-    }
-
-    pub fn calculateForceInteractions(self: *Self) void {
-        // Reset forces
-        var i: usize = 0;
-        while (i < self.f.items.len) : (i += 1) self.f.items[i] = V.zeros();
-
-        // Reset virial
-        self.virial = math.M.zeros();
-
-        // Allocate local thread variables
-        var t_f = self.allocator.alloc(V, self.n_threads * self.f.items.len) catch {
-            stopWithErrorMsg("Could not allocate t_f array", .{});
-            unreachable;
+        return Self{
+            .allocator = allocator,
+            .indexes = indexes,
+            .positions = positions,
+            .velocities = velocities,
+            .forces = forces,
+            .masses = masses,
+            .charges = charges,
+            .names = names,
         };
-        defer self.allocator.free(t_f);
+    }
 
-        var t_virial = self.allocator.alloc(M, self.n_threads) catch {
-            stopWithErrorMsg("Could not allocate t_virial array", .{});
-            unreachable;
+    pub fn deinit(self: Self) void {
+        self.allocator.free(self.indexes);
+        self.allocator.free(self.positions);
+        self.allocator.free(self.velocities);
+        self.allocator.free(self.forces);
+        self.allocator.free(self.masses);
+        self.allocator.free(self.charges);
+        for (self.names) |name| self.allocator.free(name);
+        self.allocator.free(self.names);
+    }
+};
+
+pub const System = struct {
+    allocator: *Allocator,
+    atoms: Atoms,
+    time: Time,
+
+    const Self = @This();
+
+    pub fn init(allocator: *Allocator, input: Input) !Self {
+        return Self{
+            .allocator = allocator,
+            .atoms = try Atoms.init(allocator, input),
+            .time = Time{},
         };
-        defer self.allocator.free(t_virial);
-
-        // Initialize local thread variables
-        i = 0;
-        while (i < self.n_threads * self.f.items.len) : (i += 1) t_f[i] = V.zeros();
-        i = 0;
-        while (i < self.n_threads) : (i += 1) t_virial[i] = M.zeros();
-
-        // Calculate forces
-        i = 0;
-        while (i < self.n_threads) : (i += 1) self.threads[i] = std.Thread.spawn(.{}, calculateForceInteractionsThread, .{
-            self,
-            t_f[i * self.f.items.len .. (i + 1) * self.f.items.len],
-            &t_virial[i],
-            i,
-        }) catch {
-            stopWithErrorMsg("Could not spawn #{d} thread for force calculation", .{i});
-            unreachable;
-        };
-        i = 0;
-        while (i < self.n_threads) : (i += 1) self.threads[i].join();
-
-        // Reduce local thread variables
-        i = 0;
-        while (i < self.n_threads) : (i += 1) {
-            for (self.f.items) |*f, j| f.* = math.v.add(f.*, t_f[i * self.f.items.len + j]);
-            self.virial = math.m.add(self.virial, t_virial[i]);
-        }
     }
 
-    pub fn calculateEnergyInteractions(self: *Self) void {
-        // Reset energy
-        self.energy.potential = 0;
-
-        // Calculate energy
-        for (self.ff.energy_interactions) |f| f(self);
-    }
-
-    pub fn calculateKineticEnergy(self: *Self) void {
-        var energy: Real = 0.0;
-
-        var i: usize = 0;
-        while (i < self.v.items.len) : (i += 1) {
-            energy += self.m.items[i] * math.v.dot(self.v.items[i], self.v.items[i]);
-        }
-
-        self.energy.kinetic = 0.5 * energy;
-    }
-
-    pub fn calculateTemperature(self: *Self) void {
-        self.calculateKineticEnergy();
-        const dof = 3.0 * @intToFloat(Real, self.r.items.len);
-        self.temperature = 2.0 * self.energy.kinetic / (dof * kb);
-    }
-
-    pub fn calculatePressure(self: *Self) void {
-        // Calculate velocity tensor
-        var v_tensor = math.M.zeros();
-        var i: usize = 0;
-        while (i < self.v.items.len) : (i += 1) {
-            const v = self.v.items[i];
-            const m = self.m.items[i];
-            const vv = math.v.direct(v, v);
-            const vvm = math.m.scale(vv, m);
-            v_tensor = math.m.add(v_tensor, vvm);
-        }
-
-        // Calculate pressure
-        const vol = self.region.x * self.region.y * self.region.z;
-        const tmp = math.m.add(v_tensor, self.virial);
-        const p = math.m.scale(tmp, 1.0 / vol);
-        self.pressure = math.m.add(self.pressure, p);
-    }
-
-    pub fn wrap(self: *Self) void {
-        var i: usize = 0;
-        while (i < self.r.items.len) : (i += 1) {
-            self.r.items[i] = math.wrap(self.r.items[i], self.region);
-        }
+    pub fn deinit(self: Self) void {
+        self.atoms.deinit();
     }
 
     pub fn step(self: *Self) !void {
-        // Update step counter
-        self.current_step += 1;
-
-        // Update neighbor list
-        if (self.current_step % self.neighbor_list_update_step == 0) try self.neighbor_list.update(self);
-
-        // Integrate equations of motion
-        self.integrator.evolveSystem(self);
-
-        // Wrap system
-        if (self.use_pbc) self.wrap();
-
-        // Write ts file
-        if (self.ts_file_out > 0 and self.current_step % self.ts_file_out == 0) {
-            // Calculate properties
-            self.calculateEnergyInteractions();
-            self.calculateKineticEnergy();
-            self.calculateTemperature();
-            self.calculatePressure();
-            // Report properties
-            try self.ts_file.printDataFromSystem(self);
-        }
-
-        // Write xyz file
-        if (self.xyz_file_out > 0 and self.current_step % self.xyz_file_out == 0) {
-            try xyzWriteFrame(
-                .{
-                    .n_atoms = @intCast(u32, self.id.items.len),
-                    .element = self.e,
-                    .pos = self.r,
-                },
-                self.xyz_file.file.writer(),
-            );
-        }
-
-        // Write vel file
-        if (self.vel_file_out > 0 and self.current_step % self.vel_file_out == 0) {
-            try velWriteFrame(
-                .{
-                    .id = self.id,
-                    .vel = self.v,
-                    .time = @intToFloat(Real, self.current_step) * self.integrator.dt,
-                },
-                self.vel_file.file.writer(),
-            );
-        }
+        self.time.advance(1);
     }
 };
+
+const testing = std.testing;
+
+test "Time basic usage" {
+    var time = Time{ .current_step = 10, .current_time = 5.0, .dt = 0.2 };
+
+    time.advance(1);
+
+    try testing.expect(time.current_step == 11);
+    try testing.expect(time.current_time == 2.2);
+    try testing.expect(time.dt == 0.2);
+
+    time.advance(5);
+
+    try testing.expect(time.current_step == 16);
+    try testing.expect(time.current_time == 3.2);
+    try testing.expect(time.dt == 0.2);
+}
+
+test "Atoms basic usage 1" {
+    var in_pos_file = ArrayList(u8).init(testing.allocator);
+    defer in_pos_file.deinit();
+    try in_pos_file.appendSlice("test/unit/atoms_basic_usage_01.pos");
+    var in_pos_file_name = in_pos_file.items;
+
+    var in_mol_file = ArrayList(u8).init(testing.allocator);
+    defer in_mol_file.deinit();
+    try in_mol_file.appendSlice("test/unit/atoms_basic_usage_01.mol");
+    var in_mol_file_name = in_mol_file.items;
+
+    var dummy = try testing.allocator.alloc(u8, 0);
+    defer testing.allocator.free(dummy);
+
+    var input = Input{
+        .in_mol_file = in_mol_file_name,
+        .in_pos_file = in_pos_file_name,
+        .out_ts_file = dummy,
+        .out_ts_step = 0,
+        .out_xyz_file = dummy,
+        .out_xyz_step = 0,
+        .out_vel_file = dummy,
+        .out_vel_step = 0,
+        .n_threads = 0,
+        .integrator = dummy,
+        .n_steps = 0,
+        .time_step = 0,
+        .ensemble = dummy,
+        .rng_seed = 0,
+        .temperature = 0,
+        .neighbor_list_step = 0,
+        .boundary_type = dummy,
+        .region_x = 0,
+        .region_y = 0,
+        .region_z = 0,
+    };
+
+    var atoms = try Atoms.init(testing.allocator, input);
+    defer atoms.deinit();
+
+    // Check indexes
+    try testing.expect(atoms.indexes.len == 3);
+    try testing.expect(atoms.indexes[0] == 1);
+    try testing.expect(atoms.indexes[1] == 2);
+    try testing.expect(atoms.indexes[2] == 3);
+
+    // Check positions
+    try testing.expect(atoms.positions.len == 3);
+    try testing.expect(atoms.positions[0].x == -0.5);
+    try testing.expect(atoms.positions[0].y == 0.0);
+    try testing.expect(atoms.positions[0].z == 0.0);
+
+    try testing.expect(atoms.positions[1].x == 0.0);
+    try testing.expect(atoms.positions[1].y == 0.0);
+    try testing.expect(atoms.positions[1].z == 0.0);
+
+    try testing.expect(atoms.positions[2].x == 0.5);
+    try testing.expect(atoms.positions[2].y == 0.0);
+    try testing.expect(atoms.positions[2].z == 0.0);
+
+    // Check velocities
+    try testing.expect(atoms.velocities.len == 3);
+    try testing.expect(atoms.velocities[0].x == 0.0);
+    try testing.expect(atoms.velocities[0].y == 0.0);
+    try testing.expect(atoms.velocities[0].z == 0.0);
+
+    try testing.expect(atoms.velocities[1].x == 0.0);
+    try testing.expect(atoms.velocities[1].y == 0.0);
+    try testing.expect(atoms.velocities[1].z == 0.0);
+
+    try testing.expect(atoms.velocities[2].x == 0.0);
+    try testing.expect(atoms.velocities[2].y == 0.0);
+    try testing.expect(atoms.velocities[2].z == 0.0);
+
+    // Check forces
+    try testing.expect(atoms.forces.len == 3);
+    try testing.expect(atoms.forces[0].x == 0.0);
+    try testing.expect(atoms.forces[0].y == 0.0);
+    try testing.expect(atoms.forces[0].z == 0.0);
+
+    try testing.expect(atoms.forces[1].x == 0.0);
+    try testing.expect(atoms.forces[1].y == 0.0);
+    try testing.expect(atoms.forces[1].z == 0.0);
+
+    try testing.expect(atoms.forces[2].x == 0.0);
+    try testing.expect(atoms.forces[2].y == 0.0);
+    try testing.expect(atoms.forces[2].z == 0.0);
+
+    // Check masses
+    try testing.expect(atoms.masses.len == 3);
+    try testing.expect(atoms.masses[0] == 1.0);
+    try testing.expect(atoms.masses[1] == 2.0);
+    try testing.expect(atoms.masses[2] == 3.0);
+
+    // Check charges
+    try testing.expect(atoms.charges.len == 3);
+    try testing.expect(atoms.charges[0] == -0.5);
+    try testing.expect(atoms.charges[1] == 0.0);
+    try testing.expect(atoms.charges[2] == 0.5);
+
+    // Check charges
+    try testing.expect(atoms.names.len == 3);
+    try testing.expect(std.mem.eql(u8, atoms.names[0], "A1"));
+    try testing.expect(std.mem.eql(u8, atoms.names[1], "B2"));
+    try testing.expect(std.mem.eql(u8, atoms.names[2], "C3"));
+}
+
+test "Atoms basic usage 2" {
+    var in_pos_file = ArrayList(u8).init(testing.allocator);
+    defer in_pos_file.deinit();
+    try in_pos_file.appendSlice("test/unit/atoms_basic_usage_02.pos");
+    var in_pos_file_name = in_pos_file.items;
+
+    var in_mol_file = ArrayList(u8).init(testing.allocator);
+    defer in_mol_file.deinit();
+    try in_mol_file.appendSlice("test/unit/atoms_basic_usage_02.mol");
+    var in_mol_file_name = in_mol_file.items;
+
+    var dummy = try testing.allocator.alloc(u8, 0);
+    defer testing.allocator.free(dummy);
+
+    var input = Input{
+        .in_mol_file = in_mol_file_name,
+        .in_pos_file = in_pos_file_name,
+        .out_ts_file = dummy,
+        .out_ts_step = 0,
+        .out_xyz_file = dummy,
+        .out_xyz_step = 0,
+        .out_vel_file = dummy,
+        .out_vel_step = 0,
+        .n_threads = 0,
+        .integrator = dummy,
+        .n_steps = 0,
+        .time_step = 0,
+        .ensemble = dummy,
+        .rng_seed = 0,
+        .temperature = 0,
+        .neighbor_list_step = 0,
+        .boundary_type = dummy,
+        .region_x = 0,
+        .region_y = 0,
+        .region_z = 0,
+    };
+
+    var atoms = try Atoms.init(testing.allocator, input);
+    defer atoms.deinit();
+
+    // Check indexes
+    try testing.expect(atoms.indexes.len == 3);
+    try testing.expect(atoms.indexes[0] == 20);
+    try testing.expect(atoms.indexes[1] == 1);
+    try testing.expect(atoms.indexes[2] == 123);
+
+    // Check positions
+    try testing.expect(atoms.positions.len == 3);
+    try testing.expect(atoms.positions[0].x == -0.5);
+    try testing.expect(atoms.positions[0].y == 0.0);
+    try testing.expect(atoms.positions[0].z == 0.0);
+
+    try testing.expect(atoms.positions[1].x == 0.0);
+    try testing.expect(atoms.positions[1].y == 0.0);
+    try testing.expect(atoms.positions[1].z == 0.0);
+
+    try testing.expect(atoms.positions[2].x == 0.5);
+    try testing.expect(atoms.positions[2].y == 0.0);
+    try testing.expect(atoms.positions[2].z == 0.0);
+
+    // Check velocities
+    try testing.expect(atoms.velocities.len == 3);
+    try testing.expect(atoms.velocities[0].x == 0.0);
+    try testing.expect(atoms.velocities[0].y == 0.0);
+    try testing.expect(atoms.velocities[0].z == 0.0);
+
+    try testing.expect(atoms.velocities[1].x == 0.0);
+    try testing.expect(atoms.velocities[1].y == 0.0);
+    try testing.expect(atoms.velocities[1].z == 0.0);
+
+    try testing.expect(atoms.velocities[2].x == 0.0);
+    try testing.expect(atoms.velocities[2].y == 0.0);
+    try testing.expect(atoms.velocities[2].z == 0.0);
+
+    // Check forces
+    try testing.expect(atoms.forces.len == 3);
+    try testing.expect(atoms.forces[0].x == 0.0);
+    try testing.expect(atoms.forces[0].y == 0.0);
+    try testing.expect(atoms.forces[0].z == 0.0);
+
+    try testing.expect(atoms.forces[1].x == 0.0);
+    try testing.expect(atoms.forces[1].y == 0.0);
+    try testing.expect(atoms.forces[1].z == 0.0);
+
+    try testing.expect(atoms.forces[2].x == 0.0);
+    try testing.expect(atoms.forces[2].y == 0.0);
+    try testing.expect(atoms.forces[2].z == 0.0);
+
+    // Check masses
+    try testing.expect(atoms.masses.len == 3);
+    try testing.expect(atoms.masses[0] == 2.0);
+    try testing.expect(atoms.masses[1] == 3.0);
+    try testing.expect(atoms.masses[2] == 1.0);
+
+    // Check charges
+    try testing.expect(atoms.charges.len == 3);
+    try testing.expect(atoms.charges[0] == 0.0);
+    try testing.expect(atoms.charges[1] == 0.5);
+    try testing.expect(atoms.charges[2] == -0.5);
+
+    // Check charges
+    try testing.expect(atoms.names.len == 3);
+    try testing.expect(std.mem.eql(u8, atoms.names[0], "B2"));
+    try testing.expect(std.mem.eql(u8, atoms.names[1], "C3"));
+    try testing.expect(std.mem.eql(u8, atoms.names[2], "A1"));
+}
