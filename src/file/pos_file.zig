@@ -10,7 +10,7 @@ const MdFile = @import("md_file.zig").MdFile;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
+const printErrorMsg = @import("../exception.zig").printErrorMsg;
 
 pub const Frame = struct {
     indexes: ArrayList(u32),
@@ -50,7 +50,7 @@ pub const Data = struct {
     }
 };
 
-pub const ReadDataError = error{ BadPosLine, OutOfMemory };
+pub const ReadDataError = error{ BadLine, OutOfMemory, MissingValue, BadValue };
 pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
     // Local variables
     var buf: [1024]u8 = undefined;
@@ -58,7 +58,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
     // Iterate over lines
     var line_id: usize = 0;
-    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadPosLine) |line| {
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadLine) |line| {
         // Update line number
         line_id += 1;
 
@@ -77,8 +77,8 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             // Parse time
             const time = std.mem.trim(u8, line[4..], " ");
             frame.?.time = std.fmt.parseFloat(f32, time) catch {
-                stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
-                unreachable;
+                printErrorMsg("Bad time value {s} in line {s}\n", .{ time, line });
+                return error.BadValue;
             };
             continue;
         }
@@ -88,36 +88,36 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
         // Parse index
         frame.?.indexes.append(if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-            stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad index value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing index value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         }) catch return error.OutOfMemory;
 
         // Parse positions
         const x = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad x position value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing x position value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         };
 
         const y = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad x position value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing x position value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         };
 
         const z = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-            stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad x position value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing x position value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         };
 
         frame.?.positions.append(.{ .x = x, .y = y, .z = z }) catch return error.OutOfMemory;

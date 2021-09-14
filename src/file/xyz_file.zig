@@ -6,17 +6,16 @@ const Writer = File.Writer;
 
 const V = @import("../math.zig").V;
 const MdFile = @import("md_file.zig").MdFile;
-const Element = @import("../constant.zig").Element;
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
+const printErrorMsg = @import("../exception.zig").printErrorMsg;
 const elementFromString = @import("../constant.zig").elementFromString;
 
 pub const Frame = struct {
     n_atoms: u32,
-    element: ArrayList(Element),
+    names: ArrayList([]u8),
     pos: ArrayList(V),
 
     const Self = @This();
@@ -24,13 +23,14 @@ pub const Frame = struct {
     pub fn init(allocator: *Allocator) Self {
         return Self{
             .n_atoms = 0,
-            .element = ArrayList(Element).init(allocator),
+            .element = ArrayList([]u8).init(allocator),
             .pos = ArrayList(V).init(allocator),
         };
     }
 
     pub fn deinit(self: *Self) void {
-        self.element.deinit();
+        for (self.names.items) |name| self.names.allocator.free(name);
+        self.names.deinit();
         self.pos.deinit();
     }
 };
@@ -52,7 +52,7 @@ pub const Data = struct {
     }
 };
 
-pub const ReadDataError = error{ BadXyzLine, OutOfMemory };
+pub const ReadDataError = error{ BadLine, OutOfMemory, MissingValue, BadValue };
 pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
     // State
     const State = enum { NumberOfAtoms, Comment, Positions };
@@ -64,7 +64,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
     // Iterate over lines
     var line_id: usize = 0;
-    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadXyzLine) |line| {
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadLine) |line| {
         // Update line number
         line_id += 1;
 
@@ -81,8 +81,8 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                 // Parse number
                 const n_atoms = std.mem.trim(u8, line, " ");
                 frame.?.n_atoms = std.fmt.parseInt(u32, n_atoms, 10) catch {
-                    stopWithErrorMsg("Bad number of atoms value {s} in line {s}", .{ n_atoms, line });
-                    unreachable;
+                    printErrorMsg("Bad number of atoms value {s} in line {s}\n", .{ n_atoms, line });
+                    return error.BadValue;
                 };
 
                 // Update state
@@ -101,37 +101,40 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                 var tokens = std.mem.tokenize(u8, line, " ");
 
                 // Parse element
-                frame.?.element.append(if (tokens.next()) |token| elementFromString(token) catch {
-                    stopWithErrorMsg("Unknown element {s} in line {s}", .{ token, line });
-                    unreachable;
-                } else {
-                    stopWithErrorMsg("Missing element at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                const name = if (tokens.next()) |token| token else {
+                    printErrorMsg("Missing atom name at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
+                };
+                frame.?.element.append(blk: {
+                    var list = ArrayList(u8).init(allocator);
+                    defer list.deinit();
+                    list.appendSlice(name) catch return error.OutOfMemory;
+                    break :blk list.toOwnedSlice();
                 }) catch return error.OutOfMemory;
 
                 // Parse positions
                 const x = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad x position value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing x position value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
 
                 const y = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad x position value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing x position value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
 
                 const z = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad x position value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad x position value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing x position value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing x position value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
 
                 // Update state

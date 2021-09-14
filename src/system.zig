@@ -17,7 +17,7 @@ const velWriteFrame = @import("file/vel_file.zig").writeFrame;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-const stopWithErrorMsg = @import("exception.zig").stopWithErrorMsg;
+const printErrorMsg = @import("exception.zig").printErrorMsg;
 
 pub const Time = struct {
     current_step: u32 = 0,
@@ -69,7 +69,8 @@ pub const Atoms = struct {
         const n_pos_entries = pos_file.data.frames.items[0].indexes.items.len;
         const n_mol_entries = mol_file.data.properties.indexes.items.len;
         if (n_pos_entries > n_mol_entries) {
-            // error
+            printErrorMsg("The number of atoms in pos file is bigger than the number of properties in mol file\n", .{});
+            return error.MissingProperties;
         } else if (n_pos_entries < n_mol_entries) {
             // warning
         }

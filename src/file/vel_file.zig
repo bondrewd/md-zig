@@ -10,11 +10,11 @@ const MdFile = @import("md_file.zig").MdFile;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
+const printErrorMsg = @import("../exception.zig").printErrorMsg;
 
 pub const Frame = struct {
     id: ArrayList(u32),
-    vel: ArrayList(V),
+    velocities: ArrayList(V),
     time: f32,
 
     const Self = @This();
@@ -22,14 +22,14 @@ pub const Frame = struct {
     pub fn init(allocator: *Allocator) Self {
         return Self{
             .id = ArrayList(u32).init(allocator),
-            .vel = ArrayList(V).init(allocator),
+            .velocities = ArrayList(V).init(allocator),
             .time = 0.0,
         };
     }
 
     pub fn deinit(self: *Self) void {
         self.id.deinit();
-        self.vel.deinit();
+        self.velocities.deinit();
     }
 };
 
@@ -50,7 +50,7 @@ pub const Data = struct {
     }
 };
 
-pub const ReadDataError = error{ BadVelLine, OutOfMemory };
+pub const ReadDataError = error{ BadLine, OutOfMemory, MissingValue, BadValue };
 pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
     // Local variables
     var buf: [1024]u8 = undefined;
@@ -58,7 +58,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
     // Iterate over lines
     var line_id: usize = 0;
-    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadVelLine) |line| {
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadLine) |line| {
         // Update line number
         line_id += 1;
 
@@ -77,8 +77,8 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             // Parse time
             const time = std.mem.trim(u8, line[4..], " ");
             frame.?.time = std.fmt.parseFloat(f32, time) catch {
-                stopWithErrorMsg("Bad time value {s} in line {s}", .{ time, line });
-                unreachable;
+                printErrorMsg("Bad time value {s} in line {s}\n", .{ time, line });
+                return error.BadValue;
             };
             continue;
         }
@@ -88,39 +88,39 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
         // Parse index
         frame.?.id.append(if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-            stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad index value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing index value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         }) catch return error.OutOfMemory;
 
         // Parse velocities
         const vx = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-            stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad x velocity value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing x velocity value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         };
 
         const vy = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-            stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad x velocity value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing x velocity value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         };
 
         const vz = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-            stopWithErrorMsg("Bad x velocity value {s} in line {s}", .{ token, line });
-            unreachable;
+            printErrorMsg("Bad x velocity value {s} in line {s}\n", .{ token, line });
+            return error.BadValue;
         } else {
-            stopWithErrorMsg("Missing x velocity value at line #{d} -> {s}", .{ line_id, line });
-            unreachable;
+            printErrorMsg("Missing x velocity value at line #{d} -> {s}\n", .{ line_id, line });
+            return error.MissingValue;
         };
 
-        frame.?.vel.append(.{ .x = vx, .y = vy, .z = vz }) catch return error.OutOfMemory;
+        frame.?.velocities.append(.{ .x = vx, .y = vy, .z = vz }) catch return error.OutOfMemory;
     }
 
     if (frame) |fr| data.frames.append(fr) catch return error.OutOfMemory;
@@ -137,9 +137,9 @@ pub fn writeFrame(frame: Frame, w: Writer) WriteDataError!void {
     for (frame.id.items) |id, i| {
         w.print("{d:>12}  {e:>12.5}  {e:>12.5}  {e:>12.5}\n", .{
             id,
-            frame.vel.items[i].x,
-            frame.vel.items[i].y,
-            frame.vel.items[i].z,
+            frame.velocities.items[i].x,
+            frame.velocities.items[i].y,
+            frame.velocities.items[i].z,
         }) catch return error.WriteLine;
     }
 }

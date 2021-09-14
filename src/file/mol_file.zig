@@ -9,7 +9,7 @@ const MdFile = @import("md_file.zig").MdFile;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-const stopWithErrorMsg = @import("../exception.zig").stopWithErrorMsg;
+const printErrorMsg = @import("../exception.zig").printErrorMsg;
 
 pub const Properties = struct {
     indexes: ArrayList(u32),
@@ -137,7 +137,7 @@ pub const Data = struct {
     }
 };
 
-pub const ReadDataError = error{ BadMolLine, OutOfMemory };
+pub const ReadDataError = error{ BadLine, OutOfMemory, MissingValue, BadValue };
 pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!void {
     // Section enum
     const Section = enum {
@@ -155,7 +155,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
 
     // Iterate over lines
     var line_id: usize = 0;
-    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadMolLine) |line| {
+    while (r.readUntilDelimiterOrEof(&buf, '\n') catch return error.BadLine) |line| {
         // Update line number
         line_id += 1;
 
@@ -176,7 +176,7 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
                 if (std.mem.eql(u8, section_name, "HARMONIC-ANGLE")) section = .HarmonicAngle;
                 continue;
             } else {
-                stopWithErrorMsg("Missing ']' character in section name -> {s}", .{line});
+                printErrorMsg("Missing ']' character in section name -> {s}\n", .{line});
             }
         }
 
@@ -188,165 +188,166 @@ pub fn readData(data: *Data, r: Reader, allocator: *Allocator) ReadDataError!voi
             .Properties => {
                 // Parse index
                 const id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.properties.indexes.append(id) catch return error.OutOfMemory;
 
                 // Parse name
                 const name = if (tokens.next()) |token| token else {
-                    stopWithErrorMsg("Missing atom name at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing atom name at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.properties.names.append(blk: {
                     var list = ArrayList(u8).init(allocator);
+                    defer list.deinit();
                     list.appendSlice(name) catch return error.OutOfMemory;
                     break :blk list.toOwnedSlice();
                 }) catch return error.OutOfMemory;
 
                 // Parse mass
                 const mass = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad mass value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad mass value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing mass value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing mass value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.properties.masses.append(mass) catch return error.OutOfMemory;
 
                 // Parse charge
                 const charge = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad charge value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad charge value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing charge value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing charge value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.properties.charges.append(charge) catch return error.OutOfMemory;
             },
             .LennardJones => {
                 // Parse index
                 const id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.lennard_jones.indexes.append(id) catch return error.OutOfMemory;
 
                 // Parse epsilon
                 const e = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad epsilon value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad epsilon value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing epsilon value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing epsilon value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.lennard_jones.e.append(e) catch return error.OutOfMemory;
 
                 // Parse sigma
                 const s = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad sigma value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad sigma value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing sigma value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing sigma value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.lennard_jones.s.append(s) catch return error.OutOfMemory;
             },
             .HarmonicBond => {
                 // Parse i-index
                 const i_id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad i-index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad i-index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing i-index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing i-index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_bond.i_indexes.append(i_id) catch return error.OutOfMemory;
 
                 // Parse j-index
                 const j_id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad j-index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad j-index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing j-index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing j-index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_bond.j_indexes.append(j_id) catch return error.OutOfMemory;
 
                 // Parse k0
                 const k = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad force constant value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad force constant value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing force constant value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing force constant value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_bond.k.append(k) catch return error.OutOfMemory;
 
                 // Parse b0
                 const b = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad equilibrium length value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad equilibrium length value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing equilibrium length value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing equilibrium length value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_bond.b.append(b) catch return error.OutOfMemory;
             },
             .HarmonicAngle => {
                 // Parse i-index
                 const i_id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad i-index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad i-index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing i-index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing i-index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_angle.i_indexes.append(i_id) catch return error.OutOfMemory;
 
                 // Parse j-index
                 const j_id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad j-index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad j-index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing j-index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing j-index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_angle.j_indexes.append(j_id) catch return error.OutOfMemory;
 
                 // Parse k-index
                 const k_id = if (tokens.next()) |token| std.fmt.parseInt(u32, token, 10) catch {
-                    stopWithErrorMsg("Bad k-index value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad k-index value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing k-index value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing k-index value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_angle.k_indexes.append(k_id) catch return error.OutOfMemory;
 
                 // Parse k0
                 const k = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad force constant value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad force constant value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing force constant value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing force constant value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_angle.k.append(k) catch return error.OutOfMemory;
 
                 // Parse t0
                 const t = if (tokens.next()) |token| std.fmt.parseFloat(f32, token) catch {
-                    stopWithErrorMsg("Bad equilibrium angle value {s} in line {s}", .{ token, line });
-                    unreachable;
+                    printErrorMsg("Bad equilibrium angle value {s} in line {s}\n", .{ token, line });
+                    return error.BadValue;
                 } else {
-                    stopWithErrorMsg("Missing equilibrium angle value at line #{d} -> {s}", .{ line_id, line });
-                    unreachable;
+                    printErrorMsg("Missing equilibrium angle value at line #{d} -> {s}\n", .{ line_id, line });
+                    return error.MissingValue;
                 };
                 data.harmonic_angle.t.append(t) catch return error.OutOfMemory;
             },
