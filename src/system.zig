@@ -14,6 +14,8 @@ const VelFile = @import("file.zig").VelFile;
 const xyzWriteFrame = @import("file/xyz_file.zig").writeFrame;
 const velWriteFrame = @import("file/vel_file.zig").writeFrame;
 
+const ForceField = @import("ff.zig").ForceField;
+
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
@@ -58,7 +60,7 @@ pub const Atoms = struct {
         defer pos_file.close();
         try pos_file.readData();
 
-        // Read properties from mol file
+        // Read mol file
         var mol_file = MolFile.init(allocator);
         defer mol_file.deinit();
         try mol_file.openFile(input.in_mol_file, .{});
@@ -140,6 +142,7 @@ pub const Atoms = struct {
 
 pub const System = struct {
     allocator: *Allocator,
+    ff: ForceField,
     atoms: Atoms,
     time: Time,
 
@@ -148,6 +151,7 @@ pub const System = struct {
     pub fn init(allocator: *Allocator, input: Input) !Self {
         return Self{
             .allocator = allocator,
+            .ff = try ForceField.init(allocator, input),
             .atoms = try Atoms.init(allocator, input),
             .time = Time{},
         };

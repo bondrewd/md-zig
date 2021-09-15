@@ -1,0 +1,6 @@
+[ LENNARD-JONES ]
+#  index  epsilon    sigma
+#      -   kJ/mol       nm
+       1 0.100000    0.100
+       2 0.200000    0.200
+       3 0.300000    0.300
