@@ -20,7 +20,7 @@ time_step          = 0.001                         # timestep (ps)
 ensemble           = NVE                           # [NVE]
 rng_seed           = 0                             # If 0 it is automatically generated
 temperature        = 300                           # Temperature (K)
-neighbor_list_step = 20                            # Steps before updating neighbor list
+neighbor_list_freq = 20                            # Steps before updating neighbor list
  
 [BOUNDARY]
 boundary_type      = PBC                           # [NOBC,PBC]

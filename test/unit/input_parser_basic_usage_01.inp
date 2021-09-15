@@ -1,0 +1,29 @@
+[INPUT]
+in_mol_file        = in.mol   # comment
+in_pos_file        = in.pos   # comment
+
+[OUTPUT]
+out_ts_step        = 1        # comment
+out_ts_file        = out.ts   # comment
+out_xyz_step       = 1        # comment
+out_xyz_file       = out.xyz  # comment
+out_vel_step       = 1        # comment
+out_vel_file       = out.vel  # comment
+
+[PARALLEL]
+n_threads          = 1        # comment
+ 
+[DYNAMICS]
+integrator         = foo      # comment
+n_steps            = 1        # comment
+time_step          = 1.0      # comment
+ensemble           = foo      # comment
+rng_seed           = 1        # comment
+temperature        = 1.0      # comment
+neighbor_list_freq = 1        # comment
+ 
+[BOUNDARY]
+boundary_type      = foo      # comment
+region_x           = 1.0      # comment
+region_y           = 1.0      # comment
+region_z           = 1.0      # comment

@@ -72,6 +72,7 @@ pub const ForceField = struct {
 };
 
 const testing = std.testing;
+const dummyInput = @import("input.zig").dummyInput;
 
 test "Force field basic usage 1" {
     var in_mol_file = ArrayList(u8).init(testing.allocator);
@@ -79,31 +80,8 @@ test "Force field basic usage 1" {
     try in_mol_file.appendSlice("test/unit/ff_basic_usage_01.mol");
     var in_mol_file_name = in_mol_file.items;
 
-    var dummy = try testing.allocator.alloc(u8, 0);
-    defer testing.allocator.free(dummy);
-
-    var input = Input{
-        .in_mol_file = in_mol_file_name,
-        .in_pos_file = dummy,
-        .out_ts_file = dummy,
-        .out_ts_step = 0,
-        .out_xyz_file = dummy,
-        .out_xyz_step = 0,
-        .out_vel_file = dummy,
-        .out_vel_step = 0,
-        .n_threads = 0,
-        .integrator = dummy,
-        .n_steps = 0,
-        .time_step = 0,
-        .ensemble = dummy,
-        .rng_seed = 0,
-        .temperature = 0,
-        .neighbor_list_step = 0,
-        .boundary_type = dummy,
-        .region_x = 0,
-        .region_y = 0,
-        .region_z = 0,
-    };
+    var input = dummyInput();
+    input.in_mol_file = in_mol_file_name;
 
     var ff = try ForceField.init(testing.allocator, input);
     defer ff.deinit();

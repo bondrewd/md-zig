@@ -266,7 +266,7 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
         .section = "DYNAMICS",
     },
     .{
-        .name = "neighbor_list_step",
+        .name = "neighbor_list_freq",
         .entry_type = u64,
         .section = "DYNAMICS",
     },
@@ -293,3 +293,65 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
 });
 
 pub const Input = InputParser.InputFileParserResult;
+
+const testing = std.testing;
+
+pub fn dummyInput() Input {
+    return Input{
+        .in_mol_file = undefined,
+        .in_pos_file = undefined,
+        .out_ts_file = undefined,
+        .out_ts_step = 0,
+        .out_xyz_file = undefined,
+        .out_xyz_step = 0,
+        .out_vel_file = undefined,
+        .out_vel_step = 0,
+        .n_threads = 0,
+        .integrator = undefined,
+        .n_steps = 0,
+        .time_step = 0,
+        .ensemble = undefined,
+        .rng_seed = 0,
+        .temperature = 0,
+        .neighbor_list_freq = 0,
+        .boundary_type = undefined,
+        .region_x = 0,
+        .region_y = 0,
+        .region_z = 0,
+    };
+}
+
+test "Input parser basic usage 1" {
+    const input = try InputParser.parse(testing.allocator, "test/unit/input_parser_basic_usage_01.inp");
+    defer InputParser.deinitInput(testing.allocator, input);
+
+    // Check INPUT section
+    try testing.expect(std.mem.eql(u8, input.in_mol_file, "in.mol"));
+    try testing.expect(std.mem.eql(u8, input.in_pos_file, "in.pos"));
+
+    // Check OUTPUT section
+    try testing.expect(std.mem.eql(u8, input.out_ts_file, "out.ts"));
+    try testing.expect(input.out_ts_step == 1);
+    try testing.expect(std.mem.eql(u8, input.out_xyz_file, "out.xyz"));
+    try testing.expect(input.out_xyz_step == 1);
+    try testing.expect(std.mem.eql(u8, input.out_vel_file, "out.vel"));
+    try testing.expect(input.out_vel_step == 1);
+
+    // Check PARALLEL section
+    try testing.expect(input.n_threads == 1);
+
+    // Check DYNAMICS section
+    try testing.expect(std.mem.eql(u8, input.integrator, "foo"));
+    try testing.expect(input.n_steps == 1);
+    try testing.expect(input.time_step == 1.0);
+    try testing.expect(std.mem.eql(u8, input.ensemble, "foo"));
+    try testing.expect(input.rng_seed == 1);
+    try testing.expect(input.temperature == 1.0);
+    try testing.expect(input.neighbor_list_freq == 1);
+
+    // Check BOUNDARY section
+    try testing.expect(std.mem.eql(u8, input.boundary_type, "foo"));
+    try testing.expect(input.region_x == 1.0);
+    try testing.expect(input.region_y == 1.0);
+    try testing.expect(input.region_z == 1.0);
+}
