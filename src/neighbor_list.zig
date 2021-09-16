@@ -1,55 +1,27 @@
 const std = @import("std");
 
-const math = @import("math.zig");
-const System = @import("system.zig").System;
+const Input = @import("input.zig").Input;
 
-pub const Pair = struct { i: u64, j: u64 };
+const LennardJonesNeighborList = @import("neighbor_list/lj_neighbor_list.zig").LennardJonesNeighborList;
+
+const Allocator = std.mem.Allocator;
 
 pub const NeighborList = struct {
-    allocator: *std.mem.Allocator,
-    cutoff: f32,
-    pairs: []Pair = &[_]Pair{},
+    lj_list: LennardJonesNeighborList,
 
     const Self = @This();
 
-    pub fn init(allocator: *std.mem.Allocator, cutoff: f32) Self {
-        return Self{ .allocator = allocator, .cutoff = cutoff };
+    pub fn init(allocator: *Allocator, input: Input) !Self {
+        return Self{
+            .lj_list = try LennardJonesNeighborList.init(allocator, input),
+        };
     }
 
-    pub fn update(self: *Self, system: *System) !void {
-        // Deinit current list
-        self.deinit();
-        // Declare list for saving pairs
-        var pairs = std.ArrayList(Pair).init(self.allocator);
-        defer pairs.deinit();
-
-        // Square of cutoff distance
-        const cutoff2 = self.cutoff * self.cutoff;
-
-        var i: usize = 0;
-        while (i < system.r.items.len) : (i += 1) {
-            const ri = system.r.items[i];
-
-            var j: usize = i + 1;
-            while (j < system.r.items.len) : (j += 1) {
-                const rj = system.r.items[j];
-
-                var rij = math.v.sub(ri, rj);
-                if (system.use_pbc) rij = math.wrap(rij, system.box);
-                const rij2 = math.v.dot(rij, rij);
-
-                if (rij2 < cutoff2) try pairs.append(.{
-                    .i = @intCast(u32, i),
-                    .j = @intCast(u32, j),
-                });
-            }
-        }
-
-        // Save neighbor list
-        self.pairs = pairs.toOwnedSlice();
+    pub fn deinit(self: Self) void {
+        self.lj_list.deinit();
     }
 
-    pub fn deinit(self: *Self) void {
-        self.allocator.free(self.pairs);
+    pub fn update(self: *Self, r: []V, box: ?V) !void {
+        try self.lj_list.update(r, box);
     }
 };

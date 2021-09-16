@@ -15,6 +15,7 @@ const xyzWriteFrame = @import("file/xyz_file.zig").writeFrame;
 const velWriteFrame = @import("file/vel_file.zig").writeFrame;
 
 const ForceField = @import("ff.zig").ForceField;
+const NeighborList = @import("neighbor_list.zig").NeighborList;
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
@@ -143,6 +144,7 @@ pub const Atoms = struct {
 pub const System = struct {
     allocator: *Allocator,
     ff: ForceField,
+    neighbor_list: NeighborList,
     atoms: Atoms,
     time: Time,
 
@@ -152,12 +154,15 @@ pub const System = struct {
         return Self{
             .allocator = allocator,
             .ff = try ForceField.init(allocator, input),
+            .neighbor_list = try NeighborList.init(allocator, input),
             .atoms = try Atoms.init(allocator, input),
             .time = Time{},
         };
     }
 
     pub fn deinit(self: Self) void {
+        self.ff.deinit();
+        self.neighbor_list.deinit();
         self.atoms.deinit();
     }
 
