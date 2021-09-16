@@ -18,7 +18,7 @@ pub const Pair = struct {
     j_lj: usize,
 };
 
-pub const LennardJonesNeighborList = struct {
+pub const LennardJonesList = struct {
     allocator: *Allocator,
     list: []Pair,
     lj_index_from_atom_index: []?usize,

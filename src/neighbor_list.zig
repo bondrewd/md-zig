@@ -2,18 +2,18 @@ const std = @import("std");
 
 const Input = @import("input.zig").Input;
 
-const LennardJonesNeighborList = @import("neighbor_list/lj_neighbor_list.zig").LennardJonesNeighborList;
+const LennardJonesList = @import("neighbor_list/lj_list.zig").LennardJonesList;
 
 const Allocator = std.mem.Allocator;
 
 pub const NeighborList = struct {
-    lj_list: LennardJonesNeighborList,
+    lj_list: LennardJonesList,
 
     const Self = @This();
 
     pub fn init(allocator: *Allocator, input: Input) !Self {
         return Self{
-            .lj_list = try LennardJonesNeighborList.init(allocator, input),
+            .lj_list = try LennardJonesList.init(allocator, input),
         };
     }
 
