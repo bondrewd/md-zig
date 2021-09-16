@@ -276,17 +276,17 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
         .section = "BOUNDARY",
     },
     .{
-        .name = "region_x",
+        .name = "box_x_size",
         .entry_type = f32,
         .section = "BOUNDARY",
     },
     .{
-        .name = "region_y",
+        .name = "box_y_size",
         .entry_type = f32,
         .section = "BOUNDARY",
     },
     .{
-        .name = "region_z",
+        .name = "box_z_size",
         .entry_type = f32,
         .section = "BOUNDARY",
     },
@@ -315,9 +315,9 @@ pub fn dummyInput() Input {
         .temperature = 0,
         .neighbor_list_freq = 0,
         .boundary_type = undefined,
-        .region_x = 0,
-        .region_y = 0,
-        .region_z = 0,
+        .box_x_size = 0,
+        .box_y_size = 0,
+        .box_z_size = 0,
     };
 }
 
@@ -351,7 +351,7 @@ test "Input parser basic usage 1" {
 
     // Check BOUNDARY section
     try testing.expect(std.mem.eql(u8, input.boundary_type, "foo"));
-    try testing.expect(input.region_x == 1.0);
-    try testing.expect(input.region_y == 1.0);
-    try testing.expect(input.region_z == 1.0);
+    try testing.expect(input.box_x_size == 1.0);
+    try testing.expect(input.box_y_size == 1.0);
+    try testing.expect(input.box_z_size == 1.0);
 }

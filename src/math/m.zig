@@ -185,3 +185,15 @@ pub fn matMul(m1: M, m2: M) M {
         .zz = m1.zx * m2.xz + m1.zy * m2.yz + m1.zz * m2.zz,
     };
 }
+
+pub fn expectApproxEqAbs(expected: M, actual: M, tolerance: f32) !void {
+    try std.testing.expectApproxEqAbs(expected.xx, actual.xx, tolerance);
+    try std.testing.expectApproxEqAbs(expected.xy, actual.xy, tolerance);
+    try std.testing.expectApproxEqAbs(expected.xz, actual.xz, tolerance);
+    try std.testing.expectApproxEqAbs(expected.yx, actual.yx, tolerance);
+    try std.testing.expectApproxEqAbs(expected.yy, actual.yy, tolerance);
+    try std.testing.expectApproxEqAbs(expected.yz, actual.yz, tolerance);
+    try std.testing.expectApproxEqAbs(expected.zx, actual.zx, tolerance);
+    try std.testing.expectApproxEqAbs(expected.zy, actual.zy, tolerance);
+    try std.testing.expectApproxEqAbs(expected.zz, actual.zz, tolerance);
+}

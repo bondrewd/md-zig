@@ -24,6 +24,6 @@ neighbor_list_freq = 1        # comment
  
 [BOUNDARY]
 boundary_type      = foo      # comment
-region_x           = 1.0      # comment
-region_y           = 1.0      # comment
-region_z           = 1.0      # comment
+box_x_size         = 1.0      # comment
+box_y_size         = 1.0      # comment
+box_z_size         = 1.0      # comment

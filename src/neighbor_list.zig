@@ -35,7 +35,7 @@ pub const NeighborList = struct {
                 const rj = system.r.items[j];
 
                 var rij = math.v.sub(ri, rj);
-                if (system.use_pbc) rij = math.wrap(rij, system.region);
+                if (system.use_pbc) rij = math.wrap(rij, system.box);
                 const rij2 = math.v.dot(rij, rij);
 
                 if (rij2 < cutoff2) try pairs.append(.{

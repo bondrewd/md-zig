@@ -92,3 +92,9 @@ pub fn direct(v1: V, v2: V) M {
         .zz = v1.z * v2.z,
     };
 }
+
+pub fn expectApproxEqAbs(expected: V, actual: V, tolerance: f32) !void {
+    try std.testing.expectApproxEqAbs(expected.x, actual.x, tolerance);
+    try std.testing.expectApproxEqAbs(expected.y, actual.y, tolerance);
+    try std.testing.expectApproxEqAbs(expected.z, actual.z, tolerance);
+}

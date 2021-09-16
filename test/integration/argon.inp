@@ -24,6 +24,6 @@ neighbor_list_freq = 20                            # Steps before updating neigh
  
 [BOUNDARY]
 boundary_type      = PBC                           # [NOBC,PBC]
-region_x           = 6.7                           # region size (x) in nm for [PBC]
-region_y           = 6.7                           # region size (y) in nm for [PBC]
-region_z           = 6.7                           # region size (z) in nm for [PBC]
+box_x_size         = 6.7                           # box size (x) in nm for [PBC]
+box_y_size         = 6.7                           # box size (y) in nm for [PBC]
+box_z_size         = 6.7                           # box size (z) in nm for [PBC]

@@ -52,17 +52,21 @@ pub const LennardJones = struct {
         self.allocator.free(self.s);
     }
 
-    pub fn force(ri: V, ei: f32, si: f32, rj: V, ej: f32, sj: f32, region: ?V, fi: *V, fj: *V, virial: *M) void {
+    pub fn force(self: Self, i: u32, j: u32, ri: V, rj: V, fi: *V, fj: *V, virial: *M, box: ?V) void {
         // Epsilon
+        const ei = self.e[i];
+        const ej = self.e[j];
         const e = if (ei == ej) ei else std.math.sqrt(ei * ej);
         // Sigma
+        const si = self.s[i];
+        const sj = self.s[j];
         const s = if (si == sj) si else (si + sj) / 2.0;
         const s2 = s * s;
         // Cutoff
         const cutoff2 = 6.25 * s2;
 
         var rij = math.v.sub(ri, rj);
-        if (region) rij = math.wrap(rij, region);
+        if (box) |b| rij = math.wrap(rij, b);
         const rij2 = math.v.dot(rij, rij);
 
         if (rij2 < cutoff2) {
@@ -81,17 +85,21 @@ pub const LennardJones = struct {
         }
     }
 
-    pub fn energy(ri: V, ei: f32, si: f32, rj: V, ej: f32, sj: f32, region: ?V, ene: *f32) void {
+    pub fn energy(self: Self, i: u32, j: u32, ri: V, rj: V, ene: *f32, box: ?V) void {
         // Epsilon
+        const ei = self.e[i];
+        const ej = self.e[j];
         const e = if (ei == ej) ei else std.math.sqrt(ei * ej);
         // Sigma
+        const si = self.s[i];
+        const sj = self.s[j];
         const s = if (si == sj) si else (si + sj) / 2.0;
         const s2 = s * s;
         // Cutoff
         const cutoff2 = 6.25 * s2;
 
         var rij = math.v.sub(ri, rj);
-        if (region) rij = math.wrap(rij, region);
+        if (box) |b| rij = math.wrap(rij, b);
         const rij2 = math.v.dot(rij, rij);
 
         if (rij2 < cutoff2) {
@@ -137,4 +145,68 @@ test "Lennard Jones basic usage 1" {
     try testing.expect(lj.s[0] == 0.1);
     try testing.expect(lj.s[1] == 0.2);
     try testing.expect(lj.s[2] == 0.3);
+}
+
+test "Lennard Jones basic usage 2" {
+    var in_mol_file = ArrayList(u8).init(testing.allocator);
+    defer in_mol_file.deinit();
+    try in_mol_file.appendSlice("test/unit/lj_basic_usage_02.mol");
+    var in_mol_file_name = in_mol_file.items;
+
+    var input = dummyInput();
+    input.in_mol_file = in_mol_file_name;
+
+    var lj = try LennardJones.init(testing.allocator, input);
+    defer lj.deinit();
+
+    // Initialize variables
+    const ri = V{ .x = 0.0, .y = 0.0, .z = 0.0 };
+    const rj = V{ .x = 2.0, .y = 0.0, .z = 0.0 };
+    const rij = math.v.sub(ri, rj);
+    const r = math.v.norm(rij);
+
+    var fi = V.zeros();
+    var fj = V.zeros();
+    var virial = M.zeros();
+    var eij: f32 = 0;
+    var sij: f32 = 1;
+    var c8 = std.math.pow(f32, sij / r, 8);
+    var c14 = std.math.pow(f32, sij / r, 14);
+    var f = 48.0 * eij * (c14 - 0.5 * c8) / (sij * sij);
+    var fij = math.v.scale(rij, f);
+
+    lj.force(0, 0, ri, rj, &fi, &fj, &virial, null);
+    try math.v.expectApproxEqAbs(fi, fij, std.math.epsilon(f32));
+    try math.v.expectApproxEqAbs(fj, math.v.scale(fij, -1), std.math.epsilon(f32));
+    try math.m.expectApproxEqAbs(virial, math.v.direct(rij, fij), std.math.epsilon(f32));
+
+    fi = V.zeros();
+    fj = V.zeros();
+    virial = M.zeros();
+    eij = 1;
+    sij = 2;
+    c8 = std.math.pow(f32, sij / r, 8);
+    c14 = std.math.pow(f32, sij / r, 14);
+    f = 48.0 * eij * (c14 - 0.5 * c8) / (sij * sij);
+    fij = math.v.scale(rij, f);
+
+    lj.force(1, 1, ri, rj, &fi, &fj, &virial, null);
+    try math.v.expectApproxEqAbs(fi, fij, std.math.epsilon(f32));
+    try math.v.expectApproxEqAbs(fj, math.v.scale(fij, -1), std.math.epsilon(f32));
+    try math.m.expectApproxEqAbs(virial, math.v.direct(rij, fij), std.math.epsilon(f32));
+
+    fi = V.zeros();
+    fj = V.zeros();
+    virial = M.zeros();
+    eij = 2;
+    sij = 3;
+    c8 = std.math.pow(f32, sij / r, 8);
+    c14 = std.math.pow(f32, sij / r, 14);
+    f = 48.0 * eij * (c14 - 0.5 * c8) / (sij * sij);
+    fij = math.v.scale(rij, f);
+
+    lj.force(2, 2, ri, rj, &fi, &fj, &virial, null);
+    try math.v.expectApproxEqAbs(fi, fij, std.math.epsilon(f32));
+    try math.v.expectApproxEqAbs(fj, math.v.scale(fij, -1), std.math.epsilon(f32));
+    try math.m.expectApproxEqAbs(virial, math.v.direct(rij, fij), std.math.epsilon(f32));
 }
