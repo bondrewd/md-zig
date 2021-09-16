@@ -16,6 +16,8 @@ pub const LennardJones = struct {
     indexes: []u32,
     e: []f32,
     s: []f32,
+    e_sqrt: []f32,
+    s_half: []f32,
 
     pub const Self = @This();
 
@@ -32,17 +34,25 @@ pub const LennardJones = struct {
         var indexes = try allocator.alloc(u32, n);
         var e = try allocator.alloc(f32, n);
         var s = try allocator.alloc(f32, n);
+        var e_sqrt = try allocator.alloc(f32, n);
+        var s_half = try allocator.alloc(f32, n);
 
         // Copy information from pos file
         std.mem.copy(u32, indexes, mol_file.data.lennard_jones.indexes.items);
         std.mem.copy(f32, e, mol_file.data.lennard_jones.e.items);
         std.mem.copy(f32, s, mol_file.data.lennard_jones.s.items);
 
+        // Preprocess parameters
+        for (e) |epsilon, i| e_sqrt[i] = std.math.sqrt(epsilon);
+        for (s) |sigma, i| s_half[i] = 0.5 * sigma;
+
         return Self{
             .allocator = allocator,
             .indexes = indexes,
             .e = e,
             .s = s,
+            .e_sqrt = e_sqrt,
+            .s_half = s_half,
         };
     }
 
@@ -50,17 +60,19 @@ pub const LennardJones = struct {
         self.allocator.free(self.indexes);
         self.allocator.free(self.e);
         self.allocator.free(self.s);
+        self.allocator.free(self.e_sqrt);
+        self.allocator.free(self.s_half);
     }
 
     pub fn force(self: Self, i: u32, j: u32, ri: V, rj: V, fi: *V, fj: *V, virial: *M, box: ?V) void {
         // Epsilon
-        const ei = self.e[i];
-        const ej = self.e[j];
-        const e = if (ei == ej) ei else std.math.sqrt(ei * ej);
+        const ei = self.e_sqrt[i];
+        const ej = self.e_sqrt[j];
+        const e = ei * ej;
         // Sigma
-        const si = self.s[i];
-        const sj = self.s[j];
-        const s = if (si == sj) si else (si + sj) / 2.0;
+        const si = self.s_half[i];
+        const sj = self.s_half[j];
+        const s = si + sj;
         const s2 = s * s;
         // Cutoff
         const cutoff2 = 6.25 * s2;
@@ -87,13 +99,13 @@ pub const LennardJones = struct {
 
     pub fn energy(self: Self, i: u32, j: u32, ri: V, rj: V, ene: *f32, box: ?V) void {
         // Epsilon
-        const ei = self.e[i];
-        const ej = self.e[j];
-        const e = if (ei == ej) ei else std.math.sqrt(ei * ej);
+        const ei = self.e_sqrt[i];
+        const ej = self.e_sqrt[j];
+        const e = ei * ej;
         // Sigma
-        const si = self.s[i];
-        const sj = self.s[j];
-        const s = if (si == sj) si else (si + sj) / 2.0;
+        const si = self.s_half[i];
+        const sj = self.s_half[j];
+        const s = si + sj;
         const s2 = s * s;
         // Cutoff
         const cutoff2 = 6.25 * s2;
@@ -145,6 +157,18 @@ test "Lennard Jones basic usage 1" {
     try testing.expect(lj.s[0] == 0.1);
     try testing.expect(lj.s[1] == 0.2);
     try testing.expect(lj.s[2] == 0.3);
+
+    // Check LJ e_sqrt
+    try testing.expect(lj.e_sqrt.len == 3);
+    try testing.expect(lj.e_sqrt[0] == std.math.sqrt(0.1));
+    try testing.expect(lj.e_sqrt[1] == std.math.sqrt(0.2));
+    try testing.expect(lj.e_sqrt[2] == std.math.sqrt(0.3));
+
+    // Check LJ s
+    try testing.expect(lj.s_half.len == 3);
+    try testing.expect(lj.s_half[0] == 0.5 * 0.1);
+    try testing.expect(lj.s_half[1] == 0.5 * 0.2);
+    try testing.expect(lj.s_half[2] == 0.5 * 0.3);
 }
 
 test "Lennard Jones basic usage 2" {
@@ -165,47 +189,53 @@ test "Lennard Jones basic usage 2" {
     const rij = math.v.sub(ri, rj);
     const r = math.v.norm(rij);
 
+    var i: usize = 0;
+    var j: usize = 0;
     var fi = V.zeros();
     var fj = V.zeros();
     var virial = M.zeros();
-    var eij: f32 = 0;
-    var sij: f32 = 1;
+    var eij = lj.e_sqrt[i] * lj.e_sqrt[j];
+    var sij = lj.s_half[i] + lj.s_half[j];
     var c8 = std.math.pow(f32, sij / r, 8);
     var c14 = std.math.pow(f32, sij / r, 14);
     var f = 48.0 * eij * (c14 - 0.5 * c8) / (sij * sij);
     var fij = math.v.scale(rij, f);
 
-    lj.force(0, 0, ri, rj, &fi, &fj, &virial, null);
+    lj.force(@intCast(u32, i), @intCast(u32, j), ri, rj, &fi, &fj, &virial, null);
     try math.v.expectApproxEqAbs(fi, fij, std.math.epsilon(f32));
     try math.v.expectApproxEqAbs(fj, math.v.scale(fij, -1), std.math.epsilon(f32));
     try math.m.expectApproxEqAbs(virial, math.v.direct(rij, fij), std.math.epsilon(f32));
 
+    i = 1;
+    j = 1;
     fi = V.zeros();
     fj = V.zeros();
     virial = M.zeros();
-    eij = 1;
-    sij = 2;
+    eij = lj.e_sqrt[i] * lj.e_sqrt[j];
+    sij = lj.s_half[i] + lj.s_half[j];
     c8 = std.math.pow(f32, sij / r, 8);
     c14 = std.math.pow(f32, sij / r, 14);
     f = 48.0 * eij * (c14 - 0.5 * c8) / (sij * sij);
     fij = math.v.scale(rij, f);
 
-    lj.force(1, 1, ri, rj, &fi, &fj, &virial, null);
+    lj.force(@intCast(u32, i), @intCast(u32, j), ri, rj, &fi, &fj, &virial, null);
     try math.v.expectApproxEqAbs(fi, fij, std.math.epsilon(f32));
     try math.v.expectApproxEqAbs(fj, math.v.scale(fij, -1), std.math.epsilon(f32));
     try math.m.expectApproxEqAbs(virial, math.v.direct(rij, fij), std.math.epsilon(f32));
 
+    i = 2;
+    j = 2;
     fi = V.zeros();
     fj = V.zeros();
     virial = M.zeros();
-    eij = 2;
-    sij = 3;
+    eij = lj.e_sqrt[i] * lj.e_sqrt[j];
+    sij = lj.s_half[i] + lj.s_half[j];
     c8 = std.math.pow(f32, sij / r, 8);
     c14 = std.math.pow(f32, sij / r, 14);
     f = 48.0 * eij * (c14 - 0.5 * c8) / (sij * sij);
     fij = math.v.scale(rij, f);
 
-    lj.force(2, 2, ri, rj, &fi, &fj, &virial, null);
+    lj.force(@intCast(u32, i), @intCast(u32, j), ri, rj, &fi, &fj, &virial, null);
     try math.v.expectApproxEqAbs(fi, fij, std.math.epsilon(f32));
     try math.v.expectApproxEqAbs(fj, math.v.scale(fij, -1), std.math.epsilon(f32));
     try math.m.expectApproxEqAbs(virial, math.v.direct(rij, fij), std.math.epsilon(f32));
