@@ -200,8 +200,8 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
         .default_value = .{ .string = "out.ts" },
     },
     .{
-        .name = "out_ts_step",
-        .entry_type = u64,
+        .name = "out_ts_period",
+        .entry_type = u32,
         .section = "OUTPUT",
         .default_value = .{ .int = 0 },
     },
@@ -212,7 +212,7 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
         .default_value = .{ .string = "out.xyz" },
     },
     .{
-        .name = "out_xyz_step",
+        .name = "out_xyz_period",
         .entry_type = u32,
         .section = "OUTPUT",
         .default_value = .{ .int = 0 },
@@ -224,7 +224,7 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
         .default_value = .{ .string = "out.vel" },
     },
     .{
-        .name = "out_vel_step",
+        .name = "out_vel_period",
         .entry_type = u32,
         .section = "OUTPUT",
         .default_value = .{ .int = 0 },
@@ -242,7 +242,7 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
     },
     .{
         .name = "n_steps",
-        .entry_type = u64,
+        .entry_type = u32,
         .section = "DYNAMICS",
     },
     .{
@@ -257,7 +257,7 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
     },
     .{
         .name = "rng_seed",
-        .entry_type = u64,
+        .entry_type = u32,
         .section = "DYNAMICS",
     },
     .{
@@ -266,8 +266,8 @@ pub const InputParser = InputFileParser(.{ .separator = "=" }, [_]InputFileParse
         .section = "DYNAMICS",
     },
     .{
-        .name = "neighbor_list_freq",
-        .entry_type = u64,
+        .name = "neighbor_list_period",
+        .entry_type = u32,
         .section = "DYNAMICS",
     },
     .{
@@ -301,11 +301,11 @@ pub fn dummyInput() Input {
         .in_mol_file = undefined,
         .in_pos_file = undefined,
         .out_ts_file = undefined,
-        .out_ts_step = 0,
+        .out_ts_period = 0,
         .out_xyz_file = undefined,
-        .out_xyz_step = 0,
+        .out_xyz_period = 0,
         .out_vel_file = undefined,
-        .out_vel_step = 0,
+        .out_vel_period = 0,
         .n_threads = 0,
         .integrator = undefined,
         .n_steps = 0,
@@ -313,7 +313,7 @@ pub fn dummyInput() Input {
         .ensemble = undefined,
         .rng_seed = 0,
         .temperature = 0,
-        .neighbor_list_freq = 0,
+        .neighbor_list_period = 0,
         .boundary_type = undefined,
         .box_x_size = 0,
         .box_y_size = 0,
@@ -331,11 +331,11 @@ test "Input parser basic usage 1" {
 
     // Check OUTPUT section
     try testing.expect(std.mem.eql(u8, input.out_ts_file, "out.ts"));
-    try testing.expect(input.out_ts_step == 1);
+    try testing.expect(input.out_ts_period == 1);
     try testing.expect(std.mem.eql(u8, input.out_xyz_file, "out.xyz"));
-    try testing.expect(input.out_xyz_step == 1);
+    try testing.expect(input.out_xyz_period == 1);
     try testing.expect(std.mem.eql(u8, input.out_vel_file, "out.vel"));
-    try testing.expect(input.out_vel_step == 1);
+    try testing.expect(input.out_vel_period == 1);
 
     // Check PARALLEL section
     try testing.expect(input.n_threads == 1);
@@ -347,7 +347,7 @@ test "Input parser basic usage 1" {
     try testing.expect(std.mem.eql(u8, input.ensemble, "foo"));
     try testing.expect(input.rng_seed == 1);
     try testing.expect(input.temperature == 1.0);
-    try testing.expect(input.neighbor_list_freq == 1);
+    try testing.expect(input.neighbor_list_period == 1);
 
     // Check BOUNDARY section
     try testing.expect(std.mem.eql(u8, input.boundary_type, "foo"));

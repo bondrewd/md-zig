@@ -1,29 +1,29 @@
 [INPUT]
-in_mol_file        = ./test/integration/tip3p.mol  # Molecule file
-in_pos_file        = ./test/integration/tip3p.pos  # Position file
+in_mol_file          = ./test/integration/tip3p.mol  # Molecule file
+in_pos_file          = ./test/integration/tip3p.pos  # Position file
 
 [OUTPUT]
-out_ts_step        = 100                           # Save time series every 10 steps
-out_ts_file        = tip3p.ts                      # Time series file name
-out_xyz_step       = 100                           # Save coordinates every 10 steps
-out_xyz_file       = tip3p.xyz                     # XYZ position file name
-out_vel_step       = 100                           # Save velocities every 10 steps
-out_vel_file       = tip3p.vel                     # Vel velocity file name
+out_ts_period        = 100                           # Save time series every 10 steps
+out_ts_file          = tip3p.ts                      # Time series file name
+out_xyz_period       = 100                           # Save coordinates every 10 steps
+out_xyz_file         = tip3p.xyz                     # XYZ position file name
+out_vel_period       = 100                           # Save velocities every 10 steps
+out_vel_file         = tip3p.vel                     # Vel velocity file name
 
 [PARALLEL]
-n_threads          = 1                             # Number of threads
+n_threads            = 1                             # Number of threads
  
 [DYNAMICS]
-integrator         = LEAP                          # [LEAP,VVER]
-n_steps            = 10000                         # number of MD steps
-time_step          = 0.001                         # timestep (ps)
-ensemble           = NVE                           # [NVE]
-rng_seed           = 0                             # If 0 it is automatically generated
-temperature        = 300                           # Temperature (K)
-neighbor_list_freq = 20                            # Steps before updating neighbor list
+integrator           = LEAP                          # [LEAP,VVER]
+n_steps              = 10000                         # number of MD steps
+time_step            = 0.001                         # timestep (ps)
+ensemble             = NVE                           # [NVE]
+rng_seed             = 0                             # If 0 it is automatically generated
+temperature          = 300                           # Temperature (K)
+neighbor_list_period = 20                            # Steps before updating neighbor list
  
 [BOUNDARY]
-boundary_type      = PBC                           # [NOBC,PBC]
-box_x_size         = 6.7                           # box size (x) in nm for [PBC]
-box_y_size         = 6.7                           # box size (y) in nm for [PBC]
-box_z_size         = 6.7                           # box size (z) in nm for [PBC]
+boundary_type        = PBC                           # [NOBC,PBC]
+box_x_size           = 6.7                           # box size (x) in nm for [PBC]
+box_y_size           = 6.7                           # box size (y) in nm for [PBC]
+box_z_size           = 6.7                           # box size (z) in nm for [PBC]

@@ -23,6 +23,7 @@ pub const LennardJonesList = struct {
     list: []Pair,
     lj_index_from_atom_index: []?usize,
     cutoff: f32,
+    update_period: u32,
 
     const Self = @This();
 
@@ -65,6 +66,7 @@ pub const LennardJonesList = struct {
             .list = try allocator.alloc(Pair, 0),
             .lj_index_from_atom_index = lj_index_from_atom_index,
             .cutoff = 3.0 * s_max,
+            .update_period = input.neighbor_list_period,
         };
     }
 
