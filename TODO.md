@@ -12,6 +12,7 @@
 - Refactor while loops with for loops when possible
 - Implement electrostatic interaction
 - Add data validation during system initialization
+- Implement integrators for NVE, NVT, and NPT
 
 ## Hard tasks
 
