@@ -30,8 +30,7 @@ pub const Time = struct {
     const Self = @This();
 
     pub fn advance(self: *Self, steps: u32) void {
-        var i: usize = 0;
-        while (i < steps) : (i += 1) self.current_step += 1;
+        self.current_step += steps;
         self.current_time = @intToFloat(f32, self.current_step) * self.dt;
     }
 };

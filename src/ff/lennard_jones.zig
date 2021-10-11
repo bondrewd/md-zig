@@ -11,6 +11,8 @@ const MolFile = @import("../file.zig").MolFile;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
+const printErrorMsg = @import("../exception.zig").printErrorMsg;
+
 pub const LennardJones = struct {
     allocator: *Allocator,
     indexes: []u32,
@@ -42,9 +44,34 @@ pub const LennardJones = struct {
         std.mem.copy(f32, e, mol_file.data.lennard_jones.e.items);
         std.mem.copy(f32, s, mol_file.data.lennard_jones.s.items);
 
+        // Bubble sort e and s based on index
+        var i: usize = 0;
+        var j: usize = 0;
+        while (i < indexes.len - 1) : (i += 1) {
+            while (j < indexes.len - i - 1) : (j += 1) {
+                if (indexes[j] > indexes[j + 1]) {
+                    std.mem.swap(u32, indexes[j], indexes[j + 1]);
+                    std.mem.swap(f32, e[j], e[j + 1]);
+                    std.mem.swap(f32, s[j], s[j + 1]);
+                }
+            }
+        }
+
         // Preprocess parameters
-        for (e) |epsilon, i| e_sqrt[i] = std.math.sqrt(epsilon);
-        for (s) |sigma, i| s_half[i] = 0.5 * sigma;
+        i = 0;
+        while (i < indexes.len) : (i += 1) {
+            e_sqrt[i] = std.math.sqrt(e[i]);
+            s_half[i] = 0.5 * s[i];
+        }
+
+        // Check parameters indexing
+        i = 0;
+        while (i < indexes.len) : (i += 1) {
+            if (i != indexes[i]) {
+                printErrorMsg("Missing Lennard Jones parameters for atom index -> {d}\n", .{i});
+                return error.BadIndex;
+            }
+        }
 
         return Self{
             .allocator = allocator,
