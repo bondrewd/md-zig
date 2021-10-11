@@ -50,9 +50,9 @@ pub const LennardJones = struct {
         while (i < indexes.len - 1) : (i += 1) {
             while (j < indexes.len - i - 1) : (j += 1) {
                 if (indexes[j] > indexes[j + 1]) {
-                    std.mem.swap(u32, indexes[j], indexes[j + 1]);
-                    std.mem.swap(f32, e[j], e[j + 1]);
-                    std.mem.swap(f32, s[j], s[j + 1]);
+                    std.mem.swap(u32, &indexes[j], &indexes[j + 1]);
+                    std.mem.swap(f32, &e[j], &e[j + 1]);
+                    std.mem.swap(f32, &s[j], &s[j + 1]);
                 }
             }
         }
