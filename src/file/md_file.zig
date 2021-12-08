@@ -9,7 +9,6 @@ const Writer = File.Writer;
 const OpenFlags = File.OpenFlags;
 const CreateFlags = File.CreateFlags;
 
-const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
 pub fn MdFile(

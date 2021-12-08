@@ -64,15 +64,6 @@ pub const LennardJones = struct {
             s_half[i] = 0.5 * s[i];
         }
 
-        // Check parameters indexing
-        i = 0;
-        while (i < indexes.len) : (i += 1) {
-            if (i != indexes[i]) {
-                printErrorMsg("Missing Lennard Jones parameters for atom index -> {d}\n", .{i});
-                return error.BadIndex;
-            }
-        }
-
         return Self{
             .allocator = allocator,
             .indexes = indexes,
